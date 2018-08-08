@@ -1,0 +1,101 @@
+'''
+@author: Faizan-Uni-Stuttgart
+
+'''
+
+import os
+import timeit
+import time
+import pickle
+from pathlib import Path
+
+from appdis import (
+    AppearDisappearData, AppearDisappearSettings, AppearDisappearAnalysis)
+
+
+def main():
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad')
+    os.chdir(main_dir)
+
+    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
+
+    n_uvecs = int(1e2)
+    n_cpus = 'auto'
+    fig_size = (15, 14)
+    n_dims = 6
+    ws = 10  # window size
+    nms = 1  # move size in years
+    lab_year_thresh = 10
+    analysis_style = 'alt_peel'
+    time_win_type = 'year'
+
+    n_boots = 2
+
+    out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_nms_{nms}'
+               f'_as_{analysis_style}_twt_{time_win_type}_bs_{n_boots}')
+
+    peel_depth = 1  # greater than this are kept
+
+    with open(in_var_file, 'rb') as _hdl:
+        in_var_dict = pickle.load(_hdl)
+        tot_in_var_arr = in_var_dict['pcs_arr']
+        time_idx = in_var_dict['anomaly_var_df'].index
+        eig_val_cum_sums = in_var_dict['eig_val_cum_sums']
+
+    ad_data = AppearDisappearData()
+    ad_data.set_data_array(tot_in_var_arr)
+    ad_data.set_time_index(time_idx)
+    ad_data.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
+    ad_data.verify()
+
+    ad_sett = AppearDisappearSettings()
+    ad_sett.set_analysis_parameters(
+        ws,
+        nms,
+        time_win_type,
+        analysis_style,
+        n_dims,
+        peel_depth,
+        n_cpus)
+    ad_sett.set_boot_strap_on_off(n_boots)
+    ad_sett.set_outputs_directory(out_dir)
+    ad_sett.save_outputs_to_hdf5_on_off(True)
+    ad_sett.verify()
+
+    ad_ans = AppearDisappearAnalysis()
+    ad_ans.set_data(ad_data)
+    ad_ans.set_settings(ad_sett)
+    ad_ans.verify()
+
+    ad_ans.cmpt_appear_disappear()
+    ad_ans.close_hdf5()
+
+    return
+
+
+if __name__ == '__main__':
+    _save_log_ = False
+    if _save_log_:
+        from datetime import datetime
+        from std_logger import StdFileLoggerCtrl
+
+        # save all console activity to out_log_file
+        out_log_file = os.path.join(r'P:\\',
+                                    r'Synchronize',
+                                    r'python_script_logs',
+                                    ('%s_log_%s.log' % (
+                                    os.path.basename(__file__),
+                                    datetime.now().strftime('%Y%m%d%H%M%S'))))
+        log_link = StdFileLoggerCtrl(out_log_file)
+
+    print('#### Started on %s ####\n' % time.asctime())
+    START = timeit.default_timer()  # to get the runtime of the program
+
+    main()
+
+    STOP = timeit.default_timer()  # Ending time
+    print(('\n#### Done with everything on %s.\nTotal run time was'
+           ' about %0.4f seconds ####' % (time.asctime(), STOP - START)))
+
+    if _save_log_:
+        log_link.stop()
