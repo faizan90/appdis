@@ -5,6 +5,7 @@
 
 import h5py
 import numpy as np
+import pandas as pd
 from monthdelta import monthmod
 
 from depth_funcs import depth_ftn_mp as dftn
@@ -24,6 +25,7 @@ class AppearDisappearAnalysis:
         self.verbose = verbose
 
         self._h5_hdl = None
+        self._h5_path = None
 
         self._data_set_flag = False
         self._sett_set_flag = False
@@ -290,12 +292,24 @@ class AppearDisappearAnalysis:
                         self._upld_pld, dtype=bool, order='c')
 
         if self._hdf5_flag:
-            h5_name = str(self._out_dir / 'app_dis_ds.hdf5')
-            self._h5_hdl = h5py.File(h5_name, mode='w', driver='core')
+            self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
+            self._h5_hdl = h5py.File(str(self._h5_path), mode='w', driver='core')
 
             dg = self._h5_hdl.create_group('in_data')
             dg['data_arr'] = self._data_arr
-            # dg['t_idx'] = self._t_idx.values
+
+            if (self._twt == 'month') or (self._twt == 'year'):
+                _unit = '1s'
+                _td = pd.Timedelta(_unit)
+    #             dg['t_idx'] = pd.to_datetime(_view // _td, unit=_unit)
+                dg['t_idx'] = (self._t_idx - pd.Timestamp("1970-01-01")) // _td
+
+            elif (self._twt == 'range'):
+                dg['t_idx'] = self._t_idx
+
+            else:
+                raise NotImplementedError
+
             dg.attrs['t_idx'] = self._t_idx_t
             dg['uvecs'] = self._uvecs
             dg.attrs['n_data_pts'] = self._n_data_pts
@@ -310,7 +324,7 @@ class AppearDisappearAnalysis:
             ds.attrs['ans_dims'] = self._ans_dims
             ds.attrs['pl_dth'] = self._pl_dth
             ds.attrs['n_cpus'] = self._n_cpus
-#             ds.attrs['out_dir'] = self._out_dir
+            ds.attrs['out_dir'] = str(self._out_dir)
             ds.attrs['bs_flag'] = self._bs_flag
             ds.attrs['n_bs'] = self._n_bs
 
@@ -489,9 +503,11 @@ class AppearDisappearAnalysis:
 
             bs_set = np.concatenate(bs_set, axis=0)
 
-            print('\t\t', bs_set.shape[0], (n_refr + n_test))
+            if self.verbose:
+                print('\t\tbsno:', _, bs_set.shape[0], (n_refr + n_test))
+
 #             assert bs_set.shape[0] == (n_refr + n_test)
-            assert bs_set.shape[1] == self._ans_dims
+#             assert bs_set.shape[1] == self._ans_dims
 
             refr_bs = bs_set[:n_refr, :]
             test_bs = bs_set[n_refr:, :]

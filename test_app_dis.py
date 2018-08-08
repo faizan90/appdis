@@ -10,7 +10,10 @@ import pickle
 from pathlib import Path
 
 from appdis import (
-    AppearDisappearData, AppearDisappearSettings, AppearDisappearAnalysis)
+    AppearDisappearData,
+    AppearDisappearSettings,
+    AppearDisappearAnalysis,
+    AppearDisappearPlot)
 
 
 def main():
@@ -26,15 +29,17 @@ def main():
     ws = 10  # window size
     nms = 1  # move size in years
     lab_year_thresh = 10
-    analysis_style = 'alt_peel'
+    analysis_style = 'raw'
     time_win_type = 'year'
 
-    n_boots = 2
+    n_boots = 0
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_nms_{nms}'
                f'_as_{analysis_style}_twt_{time_win_type}_bs_{n_boots}')
 
-    peel_depth = 1  # greater than this are kept
+    peel_depth = 0  # greater than this are kept
+
+    print('out_dir:', out_dir)
 
     with open(in_var_file, 'rb') as _hdl:
         in_var_dict = pickle.load(_hdl)
@@ -42,33 +47,44 @@ def main():
         time_idx = in_var_dict['anomaly_var_df'].index
         eig_val_cum_sums = in_var_dict['eig_val_cum_sums']
 
-    ad_data = AppearDisappearData()
-    ad_data.set_data_array(tot_in_var_arr)
-    ad_data.set_time_index(time_idx)
-    ad_data.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
-    ad_data.verify()
+#     ad_data = AppearDisappearData()
+#     ad_data.set_data_array(tot_in_var_arr)
+#     ad_data.set_time_index(time_idx)
+#     ad_data.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
+#     ad_data.verify()
+#
+#     ad_sett = AppearDisappearSettings()
+#     ad_sett.set_analysis_parameters(
+#         ws,
+#         nms,
+#         time_win_type,
+#         analysis_style,
+#         n_dims,
+#         peel_depth,
+#         n_cpus)
+#     ad_sett.set_boot_strap_on_off(n_boots)
+#     ad_sett.set_outputs_directory(out_dir)
+#     ad_sett.save_outputs_to_hdf5_on_off(True)
+#     ad_sett.verify()
+#
+#     ad_ans = AppearDisappearAnalysis()
+#     ad_ans.set_data(ad_data)
+#     ad_ans.set_settings(ad_sett)
+#     ad_ans.verify()
+#
+#     ad_ans.cmpt_appear_disappear()
+#     ad_ans.close_hdf5()
 
-    ad_sett = AppearDisappearSettings()
-    ad_sett.set_analysis_parameters(
-        ws,
-        nms,
-        time_win_type,
-        analysis_style,
-        n_dims,
-        peel_depth,
-        n_cpus)
-    ad_sett.set_boot_strap_on_off(n_boots)
-    ad_sett.set_outputs_directory(out_dir)
-    ad_sett.save_outputs_to_hdf5_on_off(True)
-    ad_sett.verify()
+#     hdf5_path = ad_ans._h5_path
+    hdf5_path = Path(out_dir) / 'app_dis_ds.hdf5'
 
-    ad_ans = AppearDisappearAnalysis()
-    ad_ans.set_data(ad_data)
-    ad_ans.set_settings(ad_sett)
-    ad_ans.verify()
+    ad_plot = AppearDisappearPlot()
+    ad_plot.set_hdf5(hdf5_path)
+    ad_plot.set_outputs_directory(out_dir)
+    ad_plot.set_fig_size(fig_size)
+    ad_plot.verify()
 
-    ad_ans.cmpt_appear_disappear()
-    ad_ans.close_hdf5()
+    ad_plot.plot_app_dis()
 
     return
 
