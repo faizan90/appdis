@@ -29,15 +29,15 @@ def main():
     fig_size = (15, 14)
     n_dims = 3
     ws = 10  # window size
-    analysis_style = 'alt_peel'
+    analysis_style = 'raw'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
 
-    n_boots = 0
+    n_boots = 2
 
     ann_flag = False
-    ann_flag = True
+#     ann_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs')
@@ -88,9 +88,7 @@ def main():
     ad_plot.set_fig_props(fig_size, n_ticks, cmap)
     ad_plot.verify()
 
-    ad_plot.plot_unpeeled_app_dis()
-    ad_plot.plot_peeled_app_dis()
-    ad_plot.plot_alternate_peel_app_dis()
+    ad_plot.plot_app_dis()
 
     return
 

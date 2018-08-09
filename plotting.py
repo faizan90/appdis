@@ -102,20 +102,32 @@ class AppearDisappearPlot:
         self._upld_bs_ll = bsds['upld_ll'][...]
 #         self._upld_bs_flg = bsds['upld_flg'][...]
 
+        self._upld_bs_ul.ravel()[::self._mwi + 1] = 0
+        self._upld_bs_ll.ravel()[::self._mwi + 1] = 0
+
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
             self._pld_bs_ul = bsds['pld_ul'][...]
             self._pld_bs_ll = bsds['pld_ll'][...]
 #             self._pld_bs_flg = bsds['pld_flg'][...]
 
+            self._pld_bs_ul.ravel()[::self._mwi + 1] = 0
+            self._pld_bs_ll.ravel()[::self._mwi + 1] = 0
+
             if self._ans_stl == 'alt_peel':
                 self._pld_upld_bs_ul = bsds['pld_upld_ul'][...]
                 self._pld_upld_bs_ll = bsds['pld_upld_ll'][...]
 #                 self._pld_upld_bs_flg = bsds['pld_upld_flg'][...]
 
+                self._pld_upld_bs_ul.ravel()[::self._mwi + 1] = 0
+                self._pld_upld_bs_ll.ravel()[::self._mwi + 1] = 0
+
                 self._upld_pld_bs_ul = bsds['upld_pld_ul'][...]
                 self._upld_pld_bs_ll = bsds['upld_pld_ll'][...]
 #                 self._upld_pld_bs_flg = bsds['upld_pld_flg'][...]
+
+                self._upld_pld_bs_ul.ravel()[::self._mwi + 1] = 0
+                self._upld_pld_bs_ll.ravel()[::self._mwi + 1] = 0
 
         self._bs_vars_loaded_flag = True
         return
@@ -162,12 +174,19 @@ class AppearDisappearPlot:
 
         self._upld = rds['upld'][...]
 
+        self._upld.ravel()[::self._mwi + 1] = 0
+
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
             self._pld = rds['pld'][...]
+
+            self._pld.ravel()[::self._mwi + 1] = 0
 
             if self._ans_stl == 'alt_peel':
                 self._pld_upld = rds['pld_upld'][...]
                 self._upld_pld = rds['upld_pld'][...]
+
+                self._pld_upld.ravel()[::self._mwi + 1] = 0
+                self._upld_pld.ravel()[::self._mwi + 1] = 0
 
         if self._bs_flag:
             self._load_bs_vars()
@@ -176,12 +195,25 @@ class AppearDisappearPlot:
         self._bef_plot_vars_set = True
         return
 
-    def _plot_app_dis(self, plot_arr, out_fig_name):
+    def _plot_app_dis(
+            self, rats_arr, out_fig_name, cmap, *args):
+
+        assert self._bef_plot_vars_set
 
         plt.figure(figsize=self._fgs)
         plt.axes().set_aspect('equal', 'box')
 
         add_ttl = ''
+
+        if args:
+            rats_bs_ul_arr, rats_bs_ll_arr = args[0], args[1]
+
+            plot_arr = np.zeros_like(rats_arr, dtype=np.int8)
+            plot_arr[rats_arr > rats_bs_ul_arr] = +1
+            plot_arr[rats_arr < rats_bs_ll_arr] = -1
+
+        else:
+            plot_arr = rats_arr * 100
 
         if self._twt == 'year':
             vals = np.unique(self._t_idx.year)
@@ -190,7 +222,7 @@ class AppearDisappearPlot:
                 slice(vals[0] - 0.5, vals[-1] + 0.5 + 2 - self._ws, 1),
                 slice(vals[0] - 0.5, vals[-1] + 0.5 + 2 - self._ws, 1)]
 
-            plt.pcolormesh(xcs, ycs, plot_arr * 100, cmap=self._cmap)
+            plt.pcolormesh(xcs, ycs, plot_arr, cmap=cmap)
 
             plt.xlabel('Reference year')
             plt.ylabel('Test year')
@@ -214,11 +246,10 @@ class AppearDisappearPlot:
 
             xcs, ycs = np.meshgrid(x, x)
 
-            plt.pcolormesh(xcs, ycs, plot_arr * 100, cmap=self._cmap)
+            plt.pcolormesh(xcs, ycs, plot_arr, cmap=cmap)
 
-            n_x_labs = 15
             n_tick_vals = x.shape[0] - 1
-            inc = max(1, n_tick_vals // n_x_labs)
+            inc = max(1, n_tick_vals // self._n_ticks)
 
             ticks = x[::inc][:-1] + 0.5
             tick_labs = labs[::inc][:x.shape[0] - 1]
@@ -250,53 +281,116 @@ class AppearDisappearPlot:
 
         plt.title(ttl, fontdict={'ha': 'right'}, loc='right')
 
-        plt.colorbar(label='Percentage', orientation='horizontal', shrink=0.5)
+        if not args:
+            plt.colorbar(
+                label='Percentage', orientation='horizontal', shrink=0.5)
+
+        else:
+            cb = plt.colorbar(label='Bootstrapping limits',
+                orientation='horizontal', shrink=0.5, extend='both')
+            cb.set_ticks([-1, 0, +1])
+            cb.set_ticklabels(['Below', 'Within', 'Above'])
+#             cb.update_ticks()
 
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()
         return
 
-    def plot_unpeeled_app_dis(self):
+    def _plot_bs(self):
 
-        if not self._bef_plot_vars_set:
-            self._bef_plot()
+        bs_cmap = self._cmap._resample(3)
 
-        if not self._upld_pltd_flag:
-            self._plot_app_dis(self._upld, 'upld_plot.png')
+        self._plot_app_dis(
+            self._upld,
+            'bs_upld_plot_compare.png',
+            bs_cmap,
+            self._upld_bs_ul,
+            self._upld_bs_ll,)
 
-        self._upld_pltd_flag = True
+        self._plot_app_dis(
+            self._upld_bs_ul,
+            'bs_upld_plot_ul.png',
+            self._cmap)
+
+        self._plot_app_dis(
+            self._upld_bs_ll,
+            'bs_upld_plot_ll.png',
+            self._cmap)
+
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+            self._plot_app_dis(
+                self._pld,
+                'bs_pld_plot_compare.png',
+                bs_cmap,
+                self._pld_bs_ul,
+                self._pld_bs_ll,)
+
+            self._plot_app_dis(
+                self._pld_bs_ul,
+                'bs_pld_plot_ul.png',
+                self._cmap)
+
+            self._plot_app_dis(
+                self._pld_bs_ll,
+                'bs_pld_plot_ll.png',
+                self._cmap)
+
+            if self._ans_stl == 'alt_peel':
+
+                # case 1
+                self._plot_app_dis(
+                    self._pld_upld,
+                    'bs_plt_upld_plot_compare.png',
+                    bs_cmap,
+                    self._pld_upld_bs_ul,
+                    self._pld_upld_bs_ll,)
+
+                self._plot_app_dis(
+                    self._pld_upld_bs_ul,
+                    'bs_plt_upld_plot_ul.png',
+                    self._cmap)
+
+                self._plot_app_dis(
+                    self._pld_upld_bs_ll,
+                    'bs_plt_upld_plot_ll.png',
+                    self._cmap)
+
+                # case 2
+                self._plot_app_dis(
+                    self._upld_pld,
+                    'bs_upld_pld_plot_compare.png',
+                    bs_cmap,
+                    self._upld_pld_bs_ul,
+                    self._upld_pld_bs_ll,)
+
+                self._plot_app_dis(
+                    self._upld_pld_bs_ul,
+                    'bs_upld_pld_plot_ul.png',
+                    self._cmap)
+
+                self._plot_app_dis(
+                    self._upld_pld_bs_ll,
+                    'bs_upld_pld_plot_ll.png',
+                    self._cmap)
         return
 
-    def plot_peeled_app_dis(self):
+    def plot_app_dis(self):
 
         if not self._bef_plot_vars_set:
             self._bef_plot()
 
-        assert self._pl_dth
-        assert (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
+        self._plot_app_dis(self._upld, 'upld_plot.png', self._cmap)
 
-#         self.plot_unpeeled_app_dis()
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+            self._plot_app_dis(self._pld, 'pld_plot.png', self._cmap)
 
-        if not self._pld_pltd_flag:
-            self._plot_app_dis(self._pld, 'pld_plot.png')
+            if self._ans_stl == 'alt_peel':
+                self._plot_app_dis(
+                    self._pld_upld, 'plt_upld_plot.png', self._cmap)
+                self._plot_app_dis(
+                    self._upld_pld, 'upld_pld_plot.png', self._cmap)
 
-        self._pld_pltd_flag = True
-        return
+        if self._bs_flag:
+            self._plot_bs()
 
-    def plot_alternate_peel_app_dis(self):
-
-        if not self._bef_plot_vars_set:
-            self._bef_plot()
-
-        assert self._pl_dth
-        assert self._ans_stl == 'alt_peel'
-
-#         self.plot_peeled_app_dis()
-
-        if not self._alt_pltd_flag:
-
-            self._plot_app_dis(self._pld_upld, 'plt_upld_plot.png')
-            self._plot_app_dis(self._upld_pld, 'upld_pld_plot.png')
-
-        self._alt_pltd_flag = True
         return

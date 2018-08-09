@@ -254,8 +254,8 @@ class AppearDisappearAnalysis:
             (self._mwi, self._mwi), np.nan, dtype=np.float64, order='c')
 
         if self._bs_flag:
-            self._upld_bs_ul = self._upld.copy()
-            self._upld_bs_ll = self._upld.copy()
+            self._upld_bs_ul = np.full(self._upld.shape, -np.inf)
+            self._upld_bs_ll = np.full(self._upld.shape, +np.inf)
 
             self._upld_bs_flg = np.zeros_like(
                 self._upld, dtype=bool, order='c')
@@ -265,8 +265,8 @@ class AppearDisappearAnalysis:
             self._pld = self._upld.copy()
 
             if self._bs_flag:
-                self._pld_bs_ul = self._pld.copy()
-                self._pld_bs_ll = self._pld.copy()
+                self._pld_bs_ul = np.full(self._pld.shape, -np.inf)
+                self._pld_bs_ll = np.full(self._pld.shape, +np.inf)
 
                 self._pld_bs_flg = np.zeros_like(
                     self._pld, dtype=bool, order='c')
@@ -277,11 +277,13 @@ class AppearDisappearAnalysis:
                 self._upld_pld = self._pld_upld.copy()
 
                 if self._bs_flag:
-                    self._pld_upld_bs_ul = self._pld.copy()
-                    self._pld_upld_bs_ll = self._pld.copy()
+                    self._pld_upld_bs_ul = np.full(self._pld.shape, -np.inf)
+                    self._pld_upld_bs_ll = np.full(self._pld.shape, +np.inf)
 
-                    self._upld_pld_bs_ul = self._pld_upld.copy()
-                    self._upld_pld_bs_ll = self._pld_upld.copy()
+                    self._upld_pld_bs_ul = np.full(
+                        self._pld_upld.shape, -np.inf)
+                    self._upld_pld_bs_ll = np.full(
+                        self._pld_upld.shape, +np.inf)
 
                     self._pld_upld_bs_flg = np.zeros_like(
                         self._pld_upld, dtype=bool, order='c')
@@ -291,7 +293,8 @@ class AppearDisappearAnalysis:
 
         if self._hdf5_flag:
             self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
-            self._h5_hdl = h5py.File(str(self._h5_path), mode='w', driver='core')
+            self._h5_hdl = h5py.File(
+                str(self._h5_path), mode='w', driver='core')
 
             dg = self._h5_hdl.create_group('in_data')
             dg['data_arr'] = self._data_arr
@@ -299,8 +302,8 @@ class AppearDisappearAnalysis:
             if (self._twt == 'month') or (self._twt == 'year'):
                 _unit = '1s'
                 _td = pd.Timedelta(_unit)
-    #             dg['t_idx'] = pd.to_datetime(_view // _td, unit=_unit)
-                dg['t_idx'] = (self._t_idx - pd.Timestamp("1970-01-01")) // _td
+                _min_t = pd.Timestamp("1970-01-01")
+                dg['t_idx'] = (self._t_idx - _min_t) // _td
 
             elif (self._twt == 'range'):
                 dg['t_idx'] = self._t_idx
@@ -481,7 +484,7 @@ class AppearDisappearAnalysis:
         rtmwrs = ris | tis
 
         n_refr = rmwr.shape[0]
-        n_test = tmwr.shape[0]
+#         n_test = tmwr.shape[0]
 
         n_rbsis = np.unique(rmwr).shape[0] + np.unique(tmwr).shape[0]
 
@@ -500,8 +503,8 @@ class AppearDisappearAnalysis:
 
             bs_set = np.concatenate(bs_set, axis=0)
 
-            if self.verbose:
-                print('\t\tbsno:', _, bs_set.shape[0], (n_refr + n_test))
+#             if self.verbose:
+#                 print('\t\tbsno:', _, bs_set.shape[0], (n_refr + n_test))
 
 #             assert bs_set.shape[0] == (n_refr + n_test)
 #             assert bs_set.shape[1] == self._ans_dims
