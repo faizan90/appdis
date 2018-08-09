@@ -67,8 +67,13 @@ class AppearDisappearData:
         if time_index_type == 'time':
             assert isinstance(time_index, pd.DatetimeIndex)
 
+            _dfs = (time_index.view(np.int64)[1:] -
+                    time_index.view(np.int64)[:-1])
+
         elif time_index_type == 'range':
             assert isinstance(time_index, np.ndarray)
+
+            _dfs = time_index[1:] - time_index[:-1]
 
             if not self.copy_input:
                 assert time_index.flags.c_contiguous
@@ -78,6 +83,7 @@ class AppearDisappearData:
             raise NotImplementedError
 
         assert time_index.ndim == 1
+        assert np.all(_dfs > 0)
 
         if self._data_arr_set_flag:
             assert time_index.shape[0] == self._n_data_pts

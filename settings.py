@@ -32,7 +32,6 @@ class AppearDisappearSettings:
     def set_analysis_parameters(
             self,
             window_size,
-            n_move_steps,
             time_window_type,
             analysis_style,
             analyze_dims,
@@ -40,7 +39,6 @@ class AppearDisappearSettings:
             n_cpus='auto'):
 
         assert (window_size > 0) and np.isfinite(window_size)
-        assert (n_move_steps > 0) and np.isfinite(window_size)
 
         assert isinstance(time_window_type, str)
         assert time_window_type in self._poss_time_wins
@@ -59,7 +57,6 @@ class AppearDisappearSettings:
             n_cpus = max(1, psutil.cpu_count() - 1)
 
         self._ws = window_size
-        self._nms = n_move_steps
         self._twt = time_window_type
         self._ans_stl = analysis_style
         self._ans_dims = analyze_dims

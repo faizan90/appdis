@@ -97,11 +97,10 @@ class AppearDisappearPlot:
         self._n_uvecs = dg.attrs['n_uvecs']
 
         ds = self._h5_hdl['settings']
-#         self._ws = ds.attrs['ws']
-#         self._nms = ds.attrs['nms']
+        self._ws = ds.attrs['ws']
         self._twt = ds.attrs['twt']
         self._ans_stl = ds.attrs['ans_stl']
-#         self._ans_dims = ds.attrs['ans_dims']
+        self._ans_dims = ds.attrs['ans_dims']
 #         self._pl_dth = ds.attrs['pl_dth']
 #         self._n_cpus = ds.attrs['n_cpus']
 #         self._out_dir = ds.attrs['out_dir']
@@ -152,20 +151,76 @@ class AppearDisappearPlot:
         self._bef_plot()
 
         plt.figure(figsize=self._fgs)
-        plt.imshow(self._upld.T, origin='lower')
+        plt.axes().set_aspect('equal', 'box')
 
-#         if self._twt == 'year':
-#             plt.xticks(range(n_win_years), years_rng[:n_win_years], rotation=90)
-#             plt.yticks(range(n_win_years), years_rng[:n_win_years])
-#
-#             plt.xlabel('Reference Year')
-#             plt.ylabel('Test Year')
+        add_ttl = ''
 
-#         plt.title(f'Appearing and disappearing counts (window size: {ws} years)')
+        if self._twt == 'year':
+            vals = np.unique(self._t_idx.year)
+
+            xcs, ycs = np.mgrid[
+                slice(vals[0] - 0.5, vals[-1] + 0.5 + 2 - self._ws, 1),
+                slice(vals[0] - 0.5, vals[-1] + 0.5 + 2 - self._ws, 1)]
+
+            plt.pcolormesh(xcs, ycs, self._upld * 100)
+
+            plt.xlabel('Reference year')
+            plt.ylabel('Test year')
+
+            add_ttl = f'''
+            Window size: {self._ws} year(s)
+            Starting, ending year(s): {vals[0]}, {vals[-1]}'''
+
+        elif self._twt == 'month':
+            vals = np.unique(self._mwr)
+            labs = []
+            for val in vals:
+                year_idx = np.where(self._mwr == val)[0][0]
+
+                year = self._t_idx[year_idx].year
+                mth = self._t_idx[year_idx].month
+
+                labs.append(f'{year}-{mth:02d}')
+
+            x = np.arange(vals[0] - 0.5, vals[-1] + 2.5 - self._ws, 1)
+
+            xcs, ycs = np.meshgrid(x, x)
+
+            plt.pcolormesh(xcs, ycs, self._upld * 100)
+
+            n_x_labs = 15
+            n_tick_vals = x.shape[0] - 1
+            inc = max(1, n_tick_vals // n_x_labs)
+
+            ticks = x[::inc][:-1] + 0.5
+            tick_labs = labs[::inc][:x.shape[0] - 1]
+
+            plt.xticks(ticks, tick_labs)
+            plt.yticks(ticks, tick_labs)
+
+            plt.xlabel('Reference month')
+            plt.ylabel('Test month')
+
+            add_ttl = f'''
+            Window size: {self._ws} month(s)
+            Starting, ending month(s): {vals[0]}, {vals[-1]}'''
+
+        ttl = f'''
+        Appearing and disappearing situations
+
+        Analysis style: {self._ans_stl}
+        {self._ans_dims} dimensions analyzed
+        {self._n_uvecs} unit vectors
+        {add_ttl}
+        '''
+
+        plt.xticks(rotation=90)
+
+        plt.title(ttl, fontdict={'ha': 'right'}, loc='right')
 
         plt.colorbar(label='Percentage', orientation='horizontal', shrink=0.5)
 
-        out_fig_name = ('upld_plot.png')
+        out_fig_name = 'upld_plot.png'
 
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
 

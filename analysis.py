@@ -66,7 +66,6 @@ class AppearDisappearAnalysis:
 
         vars_list = [
             '_ws',
-            '_nms',
             '_twt',
             '_ans_stl',
             '_ans_dims',
@@ -101,7 +100,7 @@ class AppearDisappearAnalysis:
 
         # this doesn't help much
         assert self._ws < self._n_data_pts
-        assert (self._ws + self._nms) < self._n_data_pts
+        assert (self._ws + 1) < self._n_data_pts
 
         self._in_vrfd_flag = True
         return
@@ -118,7 +117,7 @@ class AppearDisappearAnalysis:
         # passed to other functions to avoid a long loop and too much white
         # space
 
-        for i in range(0, self._mwi, self._nms):
+        for i in range(self._mwi):
             ris = (self._mwr >= i) & (self._mwr < (i + self._ws))
             if not ris.sum():
                 continue
@@ -236,10 +235,9 @@ class AppearDisappearAnalysis:
             mwi = win_rng.shape[0] - self._ws
 
         self._mwr = win_rng
-        self._mwi = np.arange(0, mwi, self._nms).shape[0] + 1
+        self._mwi = mwi + 1
 
         assert self._mwi > 1
-        assert self._mwi > self._nms
 
         self._mw_rng_cmptd_flag = True
         return
@@ -318,7 +316,6 @@ class AppearDisappearAnalysis:
 
             ds = self._h5_hdl.create_group('settings')
             ds.attrs['ws'] = self._ws
-            ds.attrs['nms'] = self._nms
             ds.attrs['twt'] = self._twt
             ds.attrs['ans_stl'] = self._ans_stl
             ds.attrs['ans_dims'] = self._ans_dims
