@@ -2,6 +2,7 @@
 @author: Faizan-Uni-Stuttgart
 
 '''
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -27,20 +28,8 @@ class AppearDisappearAnalysis:
         self._h5_hdl = None
         self._h5_path = None
 
-        self._data_set_flag = False
-        self._sett_set_flag = False
-        self._in_vrfd_flag = False
-        self._mw_rng_cmptd_flag = False
-        return
-
-    def set_data(self, appear_disappear_data_obj):
-
-        assert isinstance(appear_disappear_data_obj, AppearDisappearData)
-        assert appear_disappear_data_obj._in_vrfd_flag
-
-        addo = appear_disappear_data_obj
-
-        vars_list = [
+        # all labels must have a leading underscore
+        self._data_vars_labs = [
             '_data_arr',
             '_t_idx',
             '_t_idx_t',
@@ -50,21 +39,7 @@ class AppearDisappearAnalysis:
             '_n_uvecs',
             ]
 
-        for v in vars_list:
-            setattr(self, v, getattr(addo, v))
-
-        self._data_set_flag = True
-        return
-
-    def set_settings(self, appear_disappear_settings_obj):
-
-        assert isinstance(
-            appear_disappear_settings_obj, AppearDisappearSettings)
-        assert appear_disappear_settings_obj._in_vrfd_flag
-
-        adso = appear_disappear_settings_obj
-
-        vars_list = [
+        self._sett_vars_labs = [
             '_ws',
             '_twt',
             '_ans_stl',
@@ -78,30 +53,143 @@ class AppearDisappearAnalysis:
             '_fh_flag',
             ]
 
-        for v in vars_list:
+        self._inter_vars_labs = [
+            '_mwr',
+            '_mwi',
+            ]
+
+        self._app_dis_vars_labs = [
+            '_dn_flg',
+            '_upld',
+            '_pld',
+            '_pld_upld',
+            '_upld_pld',
+            ]
+
+        self._boot_vars_labs = [
+            '_upld_bs_ul',
+            '_upld_bs_ll',
+            '_upld_bs_flg',
+            '_pld_bs_ul',
+            '_pld_bs_ll',
+            '_pld_bs_flg',
+            '_pld_upld_bs_ul',
+            '_pld_upld_bs_ll',
+            '_pld_upld_bs_flg',
+            '_upld_pld_bs_ul',
+            '_upld_pld_bs_ll',
+            '_upld_pld_bs_flg',
+            ]
+
+        # sequence matters
+        self.h5_ds_names = [
+            'in_data', 'settings', 'inter_vars', 'app_dis_arrs', 'boot_arrs']
+
+        self.var_labs_list = [
+            self._data_vars_labs,
+            self._sett_vars_labs,
+            self._inter_vars_labs,
+            self._app_dis_vars_labs,
+            self._boot_vars_labs
+            ]
+
+        self._data_set_flag = False
+        self._sett_set_flag = False
+        self._rsm_hdf5_flag = False
+
+        self._in_vrfd_flag = False
+        self._mw_rng_cmptd_flag = False
+        return
+
+    def set_data(self, appear_disappear_data_obj):
+
+        assert isinstance(appear_disappear_data_obj, AppearDisappearData)
+        assert appear_disappear_data_obj._in_vrfd_flag
+
+        addo = appear_disappear_data_obj
+
+        for v in self._data_vars_labs:
+            setattr(self, v, getattr(addo, v))
+
+        self._data_set_flag = True
+        return
+
+    def set_settings(self, appear_disappear_settings_obj):
+
+        assert isinstance(
+            appear_disappear_settings_obj, AppearDisappearSettings)
+        assert appear_disappear_settings_obj._in_vrfd_flag
+
+        adso = appear_disappear_settings_obj
+
+        for v in self._sett_vars_labs:
             setattr(self, v, getattr(adso, v))
 
         self._sett_set_flag = True
         return
 
+    def resume_from_hdf5(self, path):
+
+        assert isinstance(path, (str, Path))
+
+        path = Path(path).resolve()
+
+        assert path.exists()
+        assert path.is_file()
+
+        self._h5_hdl = h5py.File(str(path), driver='core', mode='a')
+
+        h5_dss_list = []
+
+        for name in self.h5_ds_names:
+            if name not in self._h5_hdl:
+                continue
+
+            h5_dss_list.append(self._h5_hdl[name])
+
+        assert h5_dss_list
+
+        n_dss = len(h5_dss_list)
+
+        for i in range(n_dss):
+            dss = h5_dss_list[i]
+            var_labs = self.var_labs_list[i]
+
+            for lab in var_labs:
+                if lab[1:] in dss:
+                    setattr(self, lab, dss[lab[1:]][...])
+
+                elif lab[1:] in dss.attrs:
+                    setattr(self, lab, dss.attrs[lab[1:]])
+
+                elif lab in var_labs:
+                    pass
+
+                else:
+                    raise KeyError(lab)
+
+        self._rsm_hdf5_flag = True
+        return
+
     def verify(self):
 
-        assert self._data_set_flag
-        assert self._sett_set_flag
+        if not self._rsm_hdf5_flag:
+            assert self._data_set_flag
+            assert self._sett_set_flag
 
-        if self._t_idx_t == 'time':
-            assert (self._twt == 'month') or (self._twt == 'year')
+            if self._t_idx_t == 'time':
+                assert (self._twt == 'month') or (self._twt == 'year')
 
-        elif self._t_idx_t == 'range':
-            assert self._twt == 'range'
-            assert self._pl_dth < self._ws
+            elif self._t_idx_t == 'range':
+                assert self._twt == 'range'
+                assert self._pl_dth < self._ws
 
-        else:
-            raise NotImplementedError
+            else:
+                raise NotImplementedError
 
-        # this doesn't help much
-        assert self._ws < self._n_data_pts
-        assert (self._ws + 1) < self._n_data_pts
+            # this doesn't help much
+            assert self._ws < self._n_data_pts
+            assert (self._ws + 1) < self._n_data_pts
 
         self._in_vrfd_flag = True
         return
@@ -195,10 +283,12 @@ class AppearDisappearAnalysis:
                             rpis,
                             cd_arr)
 
-                self._dn_flg[i, j] = True
-
                 if self._fh_flag == 2:
                     self._ut_hdf5()
+
+                # after the update call because it could have broken
+                # during updating
+                self._dn_flg[i, j] = True
 
             if self._fh_flag == 1:
                 self._ut_hdf5()
@@ -264,6 +354,9 @@ class AppearDisappearAnalysis:
 
         assert self._in_vrfd_flag
 
+        if self._rsm_hdf5_flag:
+            return
+
         self._cmpt_mw_rng()
         assert self._mw_rng_cmptd_flag
 
@@ -320,78 +413,48 @@ class AppearDisappearAnalysis:
         self._h5_hdl = h5py.File(
             str(self._h5_path), mode='w', driver='core')
 
-        dg = self._h5_hdl.create_group('in_data')
-        dg['data_arr'] = self._data_arr
-
-        if (self._twt == 'month') or (self._twt == 'year'):
-            _unit = '1s'
-            _td = pd.Timedelta(_unit)
-            _min_t = pd.Timestamp("1970-01-01")
-            dg['t_idx'] = (self._t_idx - _min_t) // _td
-
-        elif (self._twt == 'range'):
-            dg['t_idx'] = self._t_idx
-
-        else:
-            raise NotImplementedError
-
-        dg.attrs['t_idx_t'] = self._t_idx_t
-        dg['uvecs'] = self._uvecs
-        dg.attrs['n_data_pts'] = self._n_data_pts
-        dg.attrs['n_data_dims'] = self._n_data_dims
-        dg.attrs['n_uvecs'] = self._n_uvecs
-
-        ds = self._h5_hdl.create_group('settings')
-        ds.attrs['ws'] = self._ws
-        ds.attrs['twt'] = self._twt
-        ds.attrs['ans_stl'] = self._ans_stl
-        ds.attrs['ans_dims'] = self._ans_dims
-        ds.attrs['pl_dth'] = self._pl_dth
-        ds.attrs['n_cpus'] = self._n_cpus
-        ds.attrs['out_dir'] = str(self._out_dir)
-        ds.attrs['bs_flag'] = self._bs_flag
-        ds.attrs['n_bs'] = self._n_bs
-        ds.attrs['fh_flag'] = self._fh_flag
-
-        ivs = self._h5_hdl.create_group('inter_vars')
-        ivs['mwr'] = self._mwr
-        ivs.attrs['mwi'] = self._mwi
-
-        self._h5_hdl.flush()
-
-        rds = self._h5_hdl.create_group('app_dis_arrs')
-
-        rds['upld'] = self._upld
-        rds['dn_flg'] = self._dn_flg
-
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-            rds['pld'] = self._pld
-
-            if self._ans_stl == 'alt_peel':
-                rds['pld_upld'] = self._pld_upld
-                rds['upld_pld'] = self._upld_pld
-
+        # sequence matters
+        h5_dss_list = ['in_data', 'settings', 'inter_vars', 'app_dis_arrs']
         if self._bs_flag:
-            bsds = self._h5_hdl.create_group('boot_arrs')
+            h5_dss_list.append('boot_arrs')
 
-            bsds['upld_ul'] = self._upld_bs_ul
-            bsds['upld_ll'] = self._upld_bs_ll
-            bsds['upld_flg'] = self._upld_bs_flg
+        assert h5_dss_list
 
-            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+        n_dss = len(h5_dss_list)
 
-                bsds['pld_ul'] = self._pld_bs_ul
-                bsds['pld_ll'] = self._pld_bs_ll
-                bsds['pld_flg'] = self._pld_bs_flg
+        for i in range(n_dss):
+            dss = self._h5_hdl.create_group(h5_dss_list[i])
+            var_labs = self.var_labs_list[i]
 
-                if self._ans_stl == 'alt_peel':
-                    bsds['pld_upld_ul'] = self._pld_upld_bs_ul
-                    bsds['pld_upld_ll'] = self._pld_upld_bs_ll
-                    bsds['pld_upld_flg'] = self._pld_upld_bs_flg
+            for lab in var_labs:
+                print(lab)
 
-                    bsds['upld_pld_ul'] = self._upld_pld_bs_ul
-                    bsds['upld_pld_ll'] = self._upld_pld_bs_ll
-                    bsds['upld_pld_flg'] = self._upld_pld_bs_flg
+                try:
+                    var = getattr(self, lab)
+
+                except AttributeError:
+                    continue
+
+                if isinstance(var, np.ndarray):
+                    dss[lab] = var
+
+                elif isinstance(var, (str, int)):
+                    dss.attrs[lab] = var
+
+                elif isinstance(var, Path):
+                    dss.attrs[lab] = str(var)
+
+                elif ((self._twt == 'month') or
+                      (self._twt == 'year')) and (lab == '_t_idx'):
+
+                    _unit = '1s'
+                    _td = pd.Timedelta(_unit)
+                    _min_t = pd.Timestamp("1970-01-01")
+
+                    dss[lab] = (self._t_idx - _min_t) // _td
+
+                else:
+                    raise KeyError(lab)
 
         self._h5_hdl.flush()
         return
@@ -409,37 +472,37 @@ class AppearDisappearAnalysis:
 
         rds = self._h5_hdl['app_dis_arrs']
 
-        rds['upld'][...] = self._upld
-        rds['dn_flg'][...] = self._dn_flg
+        rds['_upld'][...] = self._upld
+        rds['_dn_flg'][...] = self._dn_flg
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-            rds['pld'][...] = self._pld
+            rds['_pld'][...] = self._pld
 
             if self._ans_stl == 'alt_peel':
-                rds['pld_upld'][...] = self._pld_upld
-                rds['upld_pld'][...] = self._upld_pld
+                rds['_pld_upld'][...] = self._pld_upld
+                rds['_upld_pld'][...] = self._upld_pld
 
         if self._bs_flag:
             bsds = self._h5_hdl['boot_arrs']
 
-            bsds['upld_ul'][...] = self._upld_bs_ul
-            bsds['upld_ll'][...] = self._upld_bs_ll
-            bsds['upld_flg'][...] = self._upld_bs_flg
+            bsds['_upld_bs_ul'][...] = self._upld_bs_ul
+            bsds['_upld_bs_ll'][...] = self._upld_bs_ll
+            bsds['_upld_bs_flg'][...] = self._upld_bs_flg
 
             if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
-                bsds['pld_ul'][...] = self._pld_bs_ul
-                bsds['pld_ll'][...] = self._pld_bs_ll
-                bsds['pld_flg'][...] = self._pld_bs_flg
+                bsds['_pld_bs_ul'][...] = self._pld_bs_ul
+                bsds['_pld_bs_ll'][...] = self._pld_bs_ll
+                bsds['_pld_bs_flg'][...] = self._pld_bs_flg
 
                 if self._ans_stl == 'alt_peel':
-                    bsds['pld_upld_ul'][...] = self._pld_upld_bs_ul
-                    bsds['pld_upld_ll'][...] = self._pld_upld_bs_ll
-                    bsds['pld_upld_flg'][...] = self._pld_upld_bs_flg
+                    bsds['_pld_upld_bs_ul'][...] = self._pld_upld_bs_ul
+                    bsds['_pld_upld_bs_ll'][...] = self._pld_upld_bs_ll
+                    bsds['_pld_upld_bs_flg'][...] = self._pld_upld_bs_flg
 
-                    bsds['upld_pld_ul'][...] = self._upld_pld_bs_ul
-                    bsds['upld_pld_ll'][...] = self._upld_pld_bs_ll
-                    bsds['upld_pld_flg'][...] = self._upld_pld_bs_flg
+                    bsds['_upld_pld_bs_ul'][...] = self._upld_pld_bs_ul
+                    bsds['_upld_pld_bs_ll'][...] = self._upld_pld_bs_ll
+                    bsds['_upld_pld_bs_flg'][...] = self._upld_pld_bs_flg
 
         self._h5_hdl.flush()
         return

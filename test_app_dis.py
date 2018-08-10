@@ -37,10 +37,10 @@ def main():
     n_boots = 2
 
     ann_flag = False
-#     ann_flag = True
+    ann_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
-               f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_update_test_2')
+               f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs')
 
     peel_depth = 1  # greater than this are kept
 
@@ -69,7 +69,7 @@ def main():
             n_cpus)
         ad_sett.set_boot_strap_on_off(n_boots)
         ad_sett.set_outputs_directory(out_dir)
-        ad_sett.save_outputs_to_hdf5_on_off(True, 2)
+        ad_sett.save_outputs_to_hdf5_on_off(True, 1)
         ad_sett.verify()
 
         ad_ans = AppearDisappearAnalysis()

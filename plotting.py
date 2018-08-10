@@ -23,6 +23,71 @@ class AppearDisappearPlot:
 
         self.verbose = verbose
 
+        # all labels must have a leading underscore
+        self._data_vars_labs = [
+            '_data_arr',
+            '_t_idx',
+            '_t_idx_t',
+            '_uvecs',
+            '_n_data_pts',
+            '_n_data_dims',
+            '_n_uvecs',
+            ]
+
+        self._sett_vars_labs = [
+            '_ws',
+            '_twt',
+            '_ans_stl',
+            '_ans_dims',
+            '_pl_dth',
+            '_n_cpus',
+            '_out_dir',
+            '_bs_flag',
+            '_n_bs',
+            '_hdf5_flag',
+            '_fh_flag',
+            ]
+
+        self._inter_vars_labs = [
+            '_mwr',
+            '_mwi',
+            ]
+
+        self._app_dis_vars_labs = [
+            '_dn_flg',
+            '_upld',
+            '_pld',
+            '_pld_upld',
+            '_upld_pld',
+            ]
+
+        self._boot_vars_labs = [
+            '_upld_bs_ul',
+            '_upld_bs_ll',
+            '_upld_bs_flg',
+            '_pld_bs_ul',
+            '_pld_bs_ll',
+            '_pld_bs_flg',
+            '_pld_upld_bs_ul',
+            '_pld_upld_bs_ll',
+            '_pld_upld_bs_flg',
+            '_upld_pld_bs_ul',
+            '_upld_pld_bs_ll',
+            '_upld_pld_bs_flg',
+            ]
+
+        # sequence matters
+        self.h5_ds_names = [
+            'in_data', 'settings', 'inter_vars', 'app_dis_arrs', 'boot_arrs']
+
+        self.var_labs_list = [
+            self._data_vars_labs,
+            self._sett_vars_labs,
+            self._inter_vars_labs,
+            self._app_dis_vars_labs,
+            self._boot_vars_labs
+            ]
+
         self._h5_path_set_flag = False
         self._out_dir_set_flag = False
         self._fig_props_set_flag = False
@@ -42,7 +107,7 @@ class AppearDisappearPlot:
         assert path.exists()
         assert path.is_file()
 
-        self.h5_path = Path(path)
+        self._h5_path = Path(path)
 
         self._h5_path_set_flag = True
         return
@@ -95,45 +160,6 @@ class AppearDisappearPlot:
         self._in_vrfd_flag = True
         return
 
-    def _load_bs_vars(self):
-        bsds = self._h5_hdl['boot_arrs']
-
-        self._upld_bs_ul = bsds['upld_ul'][...]
-        self._upld_bs_ll = bsds['upld_ll'][...]
-#         self._upld_bs_flg = bsds['upld_flg'][...]
-
-        nvs = (~np.isnan(self._upld)).sum()
-
-        self._upld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-        self._upld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
-
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-            self._pld_bs_ul = bsds['pld_ul'][...]
-            self._pld_bs_ll = bsds['pld_ll'][...]
-#             self._pld_bs_flg = bsds['pld_flg'][...]
-
-            self._pld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-            self._pld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
-
-            if self._ans_stl == 'alt_peel':
-                self._pld_upld_bs_ul = bsds['pld_upld_ul'][...]
-                self._pld_upld_bs_ll = bsds['pld_upld_ll'][...]
-#                 self._pld_upld_bs_flg = bsds['pld_upld_flg'][...]
-
-                self._pld_upld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-                self._pld_upld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
-
-                self._upld_pld_bs_ul = bsds['upld_pld_ul'][...]
-                self._upld_pld_bs_ll = bsds['upld_pld_ll'][...]
-#                 self._upld_pld_bs_flg = bsds['upld_pld_flg'][...]
-
-                self._upld_pld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-                self._upld_pld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
-
-        self._bs_vars_loaded_flag = True
-        return
-
     def _bef_plot(self):
 
         assert self._in_vrfd_flag
@@ -143,57 +169,75 @@ class AppearDisappearPlot:
             self._nticks = 15
             self._cmap = plt.get_cmap('jet')
 
-        self._h5_hdl = h5py.File(str(self.h5_path), mode='r')
+        self._h5_hdl = h5py.File(str(self._h5_path), mode='r')
 
-        dg = self._h5_hdl['in_data']
-        self._data_arr = dg['data_arr'][...]
+        h5_dss_list = []
 
-        _t_idx = dg['t_idx'][...]
-        self._t_idx = pd.to_datetime(_t_idx, unit='s')
+        for name in self.h5_ds_names:
+            if name not in self._h5_hdl:
+                continue
 
-        self._t_idx_t = dg.attrs['t_idx']
-        self._uvecs = dg['uvecs'][...]
-        self._n_data_pts = dg.attrs['n_data_pts']
-        self._n_data_dims = dg.attrs['n_data_dims']
-        self._n_uvecs = dg.attrs['n_uvecs']
+            h5_dss_list.append(self._h5_hdl[name])
 
-        ds = self._h5_hdl['settings']
-        self._ws = ds.attrs['ws']
-        self._twt = ds.attrs['twt']
-        self._ans_stl = ds.attrs['ans_stl']
-        self._ans_dims = ds.attrs['ans_dims']
-        self._pl_dth = ds.attrs['pl_dth']
-#         self._n_cpus = ds.attrs['n_cpus']
-#         self._out_dir = ds.attrs['out_dir']
-        self._bs_flag = ds.attrs['bs_flag']
-        self._n_bs = ds.attrs['n_bs']
+        assert h5_dss_list
 
-        ivs = self._h5_hdl['inter_vars']
-        self._mwr = ivs['mwr'][...]
-        self._mwi = ivs.attrs['mwi']
+        n_dss = len(h5_dss_list)
 
-        rds = self._h5_hdl['app_dis_arrs']
+        for i in range(n_dss):
+            dss = h5_dss_list[i]
+            var_labs = self.var_labs_list[i]
 
-        self._upld = rds['upld'][...]
+            for lab in var_labs:
+                if lab in dss:
+                    setattr(self, lab, dss[lab][...])
 
-        nvs = (~np.isnan(self._upld)).sum()
+                elif lab in dss.attrs:
+                    setattr(self, lab, dss.attrs[lab])
+
+                elif lab in var_labs:
+                    pass
+
+                else:
+                    raise KeyError(lab)
+
+        self._h5_hdl.close()
+
+        # conversions applied to some variables because hdf5 cant have them
+        # in the format that is used here
+        if (self._twt == 'month') or (self._twt == 'year'):
+
+            self._t_idx = pd.to_datetime(self._t_idx, unit='s')
+
+        self._out_dir = Path(self._out_dir)
+
+        # add mwi to nvs for the diagnal being always nan
+        nvs = (~np.isnan(self._upld)).sum() + self._mwi
         self._upld.ravel()[:nvs][::self._mwi + 1] = 0
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-            self._pld = rds['pld'][...]
 
             self._pld.ravel()[:nvs][::self._mwi + 1] = 0
 
             if self._ans_stl == 'alt_peel':
-                self._pld_upld = rds['pld_upld'][...]
-                self._upld_pld = rds['upld_pld'][...]
-
                 self._pld_upld.ravel()[:nvs][::self._mwi + 1] = 0
                 self._upld_pld.ravel()[:nvs][::self._mwi + 1] = 0
 
         if self._bs_flag:
-            self._load_bs_vars()
-            assert self._bs_vars_loaded_flag
+            self._upld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
+            self._upld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
+
+            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
+                self._pld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
+                self._pld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
+
+                if self._ans_stl == 'alt_peel':
+
+                    self._pld_upld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
+                    self._pld_upld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
+
+                    self._upld_pld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
+                    self._upld_pld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
 
         self._bef_plot_vars_set = True
         return
@@ -478,7 +522,6 @@ class AppearDisappearPlot:
                 'Both peeled (Bootstrap)')
 
             if self._ans_stl == 'alt_peel':
-
                 # case 1
                 self._plot_bs_case(
                     self._pld_upld,
@@ -504,6 +547,7 @@ class AppearDisappearPlot:
         self._plot_app_dis(self._upld, 'upld_plot.png', 'Both unpeeled')
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
             self._plot_app_dis(self._pld, 'pld_plot.png', 'Both peeled')
 
             if self._ans_stl == 'alt_peel':
