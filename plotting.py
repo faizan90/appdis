@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
 
+from .analysis import AppearDisappearAnalysis
+
 plt.ioff()
 
 
@@ -23,70 +25,29 @@ class AppearDisappearPlot:
 
         self.verbose = verbose
 
-        # all labels must have a leading underscore
-        self._data_vars_labs = [
+        adan = AppearDisappearAnalysis()
+        self._data_vars_labs = adan._data_vars_labs
+
+        self._sett_vars_labs = adan._sett_vars_labs
+
+        self._inter_vars_labs = adan._inter_vars_labs
+
+        self._app_dis_vars_labs = adan._app_dis_vars_labs
+
+        self._boot_vars_labs = adan._boot_vars_labs
+
+        self.h5_ds_names = adan.h5_ds_names
+
+        self.var_labs_list = adan.var_labs_list
+
+        self.dont_read_vars = (
             '_data_arr',
-            '_t_idx',
-            '_t_idx_t',
             '_uvecs',
-            '_n_data_pts',
-            '_n_data_dims',
-            '_n_uvecs',
-            ]
-
-        self._sett_vars_labs = [
-            '_ws',
-            '_twt',
-            '_ans_stl',
-            '_ans_dims',
-            '_pl_dth',
-            '_n_cpus',
-            '_out_dir',
-            '_bs_flag',
-            '_n_bs',
-            '_hdf5_flag',
-            '_fh_flag',
-            ]
-
-        self._inter_vars_labs = [
-            '_mwr',
-            '_mwi',
-            ]
-
-        self._app_dis_vars_labs = [
             '_dn_flg',
-            '_upld',
-            '_pld',
-            '_pld_upld',
-            '_upld_pld',
-            ]
-
-        self._boot_vars_labs = [
-            '_upld_bs_ul',
-            '_upld_bs_ll',
             '_upld_bs_flg',
-            '_pld_bs_ul',
-            '_pld_bs_ll',
             '_pld_bs_flg',
-            '_pld_upld_bs_ul',
-            '_pld_upld_bs_ll',
             '_pld_upld_bs_flg',
-            '_upld_pld_bs_ul',
-            '_upld_pld_bs_ll',
-            '_upld_pld_bs_flg',
-            ]
-
-        # sequence matters
-        self.h5_ds_names = [
-            'in_data', 'settings', 'inter_vars', 'app_dis_arrs', 'boot_arrs']
-
-        self.var_labs_list = [
-            self._data_vars_labs,
-            self._sett_vars_labs,
-            self._inter_vars_labs,
-            self._app_dis_vars_labs,
-            self._boot_vars_labs
-            ]
+            '_upld_pld_bs_flg')
 
         self._h5_path_set_flag = False
         self._out_dir_set_flag = False
@@ -188,6 +149,10 @@ class AppearDisappearPlot:
             var_labs = self.var_labs_list[i]
 
             for lab in var_labs:
+
+                if lab in self.dont_read_vars:
+                    continue
+
                 if lab in dss:
                     setattr(self, lab, dss[lab][...])
 
@@ -210,7 +175,7 @@ class AppearDisappearPlot:
 
         self._out_dir = Path(self._out_dir)
 
-        # add mwi to nvs for the diagnal being always nan
+        # add mwi to nvs for the diagonal being always nan
         nvs = (~np.isnan(self._upld)).sum() + self._mwi
         self._upld.ravel()[:nvs][::self._mwi + 1] = 0
 

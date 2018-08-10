@@ -29,12 +29,12 @@ def main():
     fig_size = (15, 14)
     n_dims = 3
     ws = 5  # window size
-    analysis_style = 'peel'
+    analysis_style = 'alt_peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
 
-    n_boots = 2
+    n_boots = 0
 
     ann_flag = False
     ann_flag = True
@@ -45,6 +45,8 @@ def main():
     peel_depth = 1  # greater than this are kept
 
     print('out_dir:', out_dir)
+
+    hdf5_path = Path(out_dir) / 'app_dis_ds.hdf5'
 
     with open(in_var_file, 'rb') as _hdl:
         in_var_dict = pickle.load(_hdl)
@@ -69,7 +71,7 @@ def main():
             n_cpus)
         ad_sett.set_boot_strap_on_off(n_boots)
         ad_sett.set_outputs_directory(out_dir)
-        ad_sett.save_outputs_to_hdf5_on_off(True, 1)
+        ad_sett.save_outputs_to_hdf5_on_off(True, 2)
         ad_sett.verify()
 
         ad_ans = AppearDisappearAnalysis()
@@ -77,10 +79,10 @@ def main():
         ad_ans.set_settings(ad_sett)
         ad_ans.verify()
 
+#         ad_ans.resume_from_hdf5(hdf5_path)
+
         ad_ans.cmpt_appear_disappear()
         ad_ans.terminate_analysis()
-
-    hdf5_path = Path(out_dir) / 'app_dis_ds.hdf5'
 
     ad_plot = AppearDisappearPlot()
     ad_plot.set_hdf5(hdf5_path)

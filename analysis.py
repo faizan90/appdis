@@ -29,7 +29,7 @@ class AppearDisappearAnalysis:
         self._h5_path = None
 
         # all labels must have a leading underscore
-        self._data_vars_labs = [
+        self._data_vars_labs = (
             '_data_arr',
             '_t_idx',
             '_t_idx_t',
@@ -37,9 +37,9 @@ class AppearDisappearAnalysis:
             '_n_data_pts',
             '_n_data_dims',
             '_n_uvecs',
-            ]
+            )
 
-        self._sett_vars_labs = [
+        self._sett_vars_labs = (
             '_ws',
             '_twt',
             '_ans_stl',
@@ -51,22 +51,22 @@ class AppearDisappearAnalysis:
             '_n_bs',
             '_hdf5_flag',
             '_fh_flag',
-            ]
+            )
 
-        self._inter_vars_labs = [
+        self._inter_vars_labs = (
             '_mwr',
             '_mwi',
-            ]
+            )
 
-        self._app_dis_vars_labs = [
+        self._app_dis_vars_labs = (
             '_dn_flg',
             '_upld',
             '_pld',
             '_pld_upld',
             '_upld_pld',
-            ]
+            )
 
-        self._boot_vars_labs = [
+        self._boot_vars_labs = (
             '_upld_bs_ul',
             '_upld_bs_ll',
             '_upld_bs_flg',
@@ -79,19 +79,19 @@ class AppearDisappearAnalysis:
             '_upld_pld_bs_ul',
             '_upld_pld_bs_ll',
             '_upld_pld_bs_flg',
-            ]
+            )
 
         # sequence matters
-        self.h5_ds_names = [
-            'in_data', 'settings', 'inter_vars', 'app_dis_arrs', 'boot_arrs']
+        self.h5_ds_names = (
+            'in_data', 'settings', 'inter_vars', 'app_dis_arrs', 'boot_arrs')
 
-        self.var_labs_list = [
+        self.var_labs_list = (
             self._data_vars_labs,
             self._sett_vars_labs,
             self._inter_vars_labs,
             self._app_dis_vars_labs,
             self._boot_vars_labs
-            ]
+            )
 
         self._data_set_flag = False
         self._sett_set_flag = False
@@ -156,11 +156,11 @@ class AppearDisappearAnalysis:
             var_labs = self.var_labs_list[i]
 
             for lab in var_labs:
-                if lab[1:] in dss:
-                    setattr(self, lab, dss[lab[1:]][...])
+                if lab in dss:
+                    setattr(self, lab, dss[lab][...])
 
-                elif lab[1:] in dss.attrs:
-                    setattr(self, lab, dss.attrs[lab[1:]])
+                elif lab in dss.attrs:
+                    setattr(self, lab, dss.attrs[lab])
 
                 elif lab in var_labs:
                     pass
@@ -168,7 +168,16 @@ class AppearDisappearAnalysis:
                 else:
                     raise KeyError(lab)
 
+        # conversions applied to some variables because hdf5 cant have them
+        # in the format that is used here
+        if (self._twt == 'month') or (self._twt == 'year'):
+
+            self._t_idx = pd.to_datetime(self._t_idx, unit='s')
+
+        self._out_dir = Path(self._out_dir)
+
         self._rsm_hdf5_flag = True
+        self.verify()
         return
 
     def verify(self):
@@ -197,6 +206,8 @@ class AppearDisappearAnalysis:
     def cmpt_appear_disappear(self):
 
         self._bef_app_dis()
+
+        assert self._in_vrfd_flag
 
         pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
 
@@ -472,37 +483,14 @@ class AppearDisappearAnalysis:
 
         rds = self._h5_hdl['app_dis_arrs']
 
-        rds['_upld'][...] = self._upld
-        rds['_dn_flg'][...] = self._dn_flg
-
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-            rds['_pld'][...] = self._pld
-
-            if self._ans_stl == 'alt_peel':
-                rds['_pld_upld'][...] = self._pld_upld
-                rds['_upld_pld'][...] = self._upld_pld
+        for rd in rds.keys():
+            exec(f'rds[\'{rd}\'][...] = self.{rd}')
 
         if self._bs_flag:
             bsds = self._h5_hdl['boot_arrs']
 
-            bsds['_upld_bs_ul'][...] = self._upld_bs_ul
-            bsds['_upld_bs_ll'][...] = self._upld_bs_ll
-            bsds['_upld_bs_flg'][...] = self._upld_bs_flg
-
-            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-                bsds['_pld_bs_ul'][...] = self._pld_bs_ul
-                bsds['_pld_bs_ll'][...] = self._pld_bs_ll
-                bsds['_pld_bs_flg'][...] = self._pld_bs_flg
-
-                if self._ans_stl == 'alt_peel':
-                    bsds['_pld_upld_bs_ul'][...] = self._pld_upld_bs_ul
-                    bsds['_pld_upld_bs_ll'][...] = self._pld_upld_bs_ll
-                    bsds['_pld_upld_bs_flg'][...] = self._pld_upld_bs_flg
-
-                    bsds['_upld_pld_bs_ul'][...] = self._upld_pld_bs_ul
-                    bsds['_upld_pld_bs_ll'][...] = self._upld_pld_bs_ll
-                    bsds['_upld_pld_bs_flg'][...] = self._upld_pld_bs_flg
+            for bsd in bsds.keys():
+                exec(f'bsds[\'{bsd}\'][...] = self.{bsd}')
 
         self._h5_hdl.flush()
         return
