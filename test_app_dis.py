@@ -28,8 +28,8 @@ def main():
     n_cpus = 'auto'
     fig_size = (15, 14)
     n_dims = 3
-    ws = 10  # window size
-    analysis_style = 'raw'
+    ws = 5  # window size
+    analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
@@ -40,7 +40,7 @@ def main():
 #     ann_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
-               f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs')
+               f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_update_test_2')
 
     peel_depth = 1  # greater than this are kept
 
@@ -69,7 +69,7 @@ def main():
             n_cpus)
         ad_sett.set_boot_strap_on_off(n_boots)
         ad_sett.set_outputs_directory(out_dir)
-        ad_sett.save_outputs_to_hdf5_on_off(True)
+        ad_sett.save_outputs_to_hdf5_on_off(True, 2)
         ad_sett.verify()
 
         ad_ans = AppearDisappearAnalysis()
@@ -78,7 +78,7 @@ def main():
         ad_ans.verify()
 
         ad_ans.cmpt_appear_disappear()
-        ad_ans.close_hdf5()
+        ad_ans.terminate_analysis()
 
     hdf5_path = Path(out_dir) / 'app_dis_ds.hdf5'
 
@@ -89,7 +89,6 @@ def main():
     ad_plot.verify()
 
     ad_plot.plot_app_dis()
-
     return
 
 

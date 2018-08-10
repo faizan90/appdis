@@ -75,6 +75,7 @@ class AppearDisappearAnalysis:
             '_bs_flag',
             '_n_bs',
             '_hdf5_flag',
+            '_fh_flag',
             ]
 
         for v in vars_list:
@@ -118,6 +119,10 @@ class AppearDisappearAnalysis:
         # space
 
         for i in range(self._mwi):
+
+            if np.all(self._dn_flg[i, :]):
+                continue
+
             ris = (self._mwr >= i) & (self._mwr < (i + self._ws))
             if not ris.sum():
                 continue
@@ -142,6 +147,10 @@ class AppearDisappearAnalysis:
                     rpis[ris] = refr_pldis
 
             for j in range(self._mwi):
+
+                if self._dn_flg[i, j]:
+                    continue
+
                 if i == j:
                     continue
 
@@ -186,12 +195,21 @@ class AppearDisappearAnalysis:
                             rpis,
                             cd_arr)
 
+                self._dn_flg[i, j] = True
+
+                if self._fh_flag == 2:
+                    self._ut_hdf5()
+
+            if self._fh_flag == 1:
+                self._ut_hdf5()
+
         self._aft_app_dis()
         return
 
-    def close_hdf5(self):
+    def terminate_analysis(self):
 
         if self._hdf5_flag:
+            self._ut_hdf5()
             self._h5_hdl.close()
 
         self._h5_hdl = None
@@ -253,6 +271,8 @@ class AppearDisappearAnalysis:
         self._upld = np.full(
             (self._mwi, self._mwi), np.nan, dtype=np.float64, order='c')
 
+        self._dn_flg = np.zeros_like(self._upld, dtype=bool)
+
         if self._bs_flag:
             self._upld_bs_ul = np.full(self._upld.shape, -np.inf)
             self._upld_bs_ll = np.full(self._upld.shape, +np.inf)
@@ -292,86 +312,136 @@ class AppearDisappearAnalysis:
                         self._upld_pld, dtype=bool, order='c')
 
         if self._hdf5_flag:
-            self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
-            self._h5_hdl = h5py.File(
-                str(self._h5_path), mode='w', driver='core')
+            self._init_hdf5_ds()
+        return
 
-            dg = self._h5_hdl.create_group('in_data')
-            dg['data_arr'] = self._data_arr
+    def _init_hdf5_ds(self):
+        self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
+        self._h5_hdl = h5py.File(
+            str(self._h5_path), mode='w', driver='core')
 
-            if (self._twt == 'month') or (self._twt == 'year'):
-                _unit = '1s'
-                _td = pd.Timedelta(_unit)
-                _min_t = pd.Timestamp("1970-01-01")
-                dg['t_idx'] = (self._t_idx - _min_t) // _td
+        dg = self._h5_hdl.create_group('in_data')
+        dg['data_arr'] = self._data_arr
 
-            elif (self._twt == 'range'):
-                dg['t_idx'] = self._t_idx
+        if (self._twt == 'month') or (self._twt == 'year'):
+            _unit = '1s'
+            _td = pd.Timedelta(_unit)
+            _min_t = pd.Timestamp("1970-01-01")
+            dg['t_idx'] = (self._t_idx - _min_t) // _td
 
-            else:
-                raise NotImplementedError
+        elif (self._twt == 'range'):
+            dg['t_idx'] = self._t_idx
 
-            dg.attrs['t_idx'] = self._t_idx_t
-            dg['uvecs'] = self._uvecs
-            dg.attrs['n_data_pts'] = self._n_data_pts
-            dg.attrs['n_data_dims'] = self._n_data_dims
-            dg.attrs['n_uvecs'] = self._n_uvecs
+        else:
+            raise NotImplementedError
 
-            ds = self._h5_hdl.create_group('settings')
-            ds.attrs['ws'] = self._ws
-            ds.attrs['twt'] = self._twt
-            ds.attrs['ans_stl'] = self._ans_stl
-            ds.attrs['ans_dims'] = self._ans_dims
-            ds.attrs['pl_dth'] = self._pl_dth
-            ds.attrs['n_cpus'] = self._n_cpus
-            ds.attrs['out_dir'] = str(self._out_dir)
-            ds.attrs['bs_flag'] = self._bs_flag
-            ds.attrs['n_bs'] = self._n_bs
+        dg.attrs['t_idx_t'] = self._t_idx_t
+        dg['uvecs'] = self._uvecs
+        dg.attrs['n_data_pts'] = self._n_data_pts
+        dg.attrs['n_data_dims'] = self._n_data_dims
+        dg.attrs['n_uvecs'] = self._n_uvecs
 
-            ivs = self._h5_hdl.create_group('inter_vars')
-            ivs['mwr'] = self._mwr
-            ivs.attrs['mwi'] = self._mwi
+        ds = self._h5_hdl.create_group('settings')
+        ds.attrs['ws'] = self._ws
+        ds.attrs['twt'] = self._twt
+        ds.attrs['ans_stl'] = self._ans_stl
+        ds.attrs['ans_dims'] = self._ans_dims
+        ds.attrs['pl_dth'] = self._pl_dth
+        ds.attrs['n_cpus'] = self._n_cpus
+        ds.attrs['out_dir'] = str(self._out_dir)
+        ds.attrs['bs_flag'] = self._bs_flag
+        ds.attrs['n_bs'] = self._n_bs
+        ds.attrs['fh_flag'] = self._fh_flag
 
-            self._h5_hdl.flush()
+        ivs = self._h5_hdl.create_group('inter_vars')
+        ivs['mwr'] = self._mwr
+        ivs.attrs['mwi'] = self._mwi
+
+        self._h5_hdl.flush()
+
+        rds = self._h5_hdl.create_group('app_dis_arrs')
+
+        rds['upld'] = self._upld
+        rds['dn_flg'] = self._dn_flg
+
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+            rds['pld'] = self._pld
+
+            if self._ans_stl == 'alt_peel':
+                rds['pld_upld'] = self._pld_upld
+                rds['upld_pld'] = self._upld_pld
+
+        if self._bs_flag:
+            bsds = self._h5_hdl.create_group('boot_arrs')
+
+            bsds['upld_ul'] = self._upld_bs_ul
+            bsds['upld_ll'] = self._upld_bs_ll
+            bsds['upld_flg'] = self._upld_bs_flg
+
+            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
+                bsds['pld_ul'] = self._pld_bs_ul
+                bsds['pld_ll'] = self._pld_bs_ll
+                bsds['pld_flg'] = self._pld_bs_flg
+
+                if self._ans_stl == 'alt_peel':
+                    bsds['pld_upld_ul'] = self._pld_upld_bs_ul
+                    bsds['pld_upld_ll'] = self._pld_upld_bs_ll
+                    bsds['pld_upld_flg'] = self._pld_upld_bs_flg
+
+                    bsds['upld_pld_ul'] = self._upld_pld_bs_ul
+                    bsds['upld_pld_ll'] = self._upld_pld_bs_ll
+                    bsds['upld_pld_flg'] = self._upld_pld_bs_flg
+
+        self._h5_hdl.flush()
         return
 
     def _aft_app_dis(self):
 
-        if self._hdf5_flag:
-            rds = self._h5_hdl.create_group('app_dis_arrs')
+        if self._fh_flag == 0:
+            self._ut_hdf5()
+        return
 
-            rds['upld'] = self._upld
+    def _ut_hdf5(self):
+
+        if not self._hdf5_flag:
+            return
+
+        rds = self._h5_hdl['app_dis_arrs']
+
+        rds['upld'][...] = self._upld
+        rds['dn_flg'][...] = self._dn_flg
+
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+            rds['pld'][...] = self._pld
+
+            if self._ans_stl == 'alt_peel':
+                rds['pld_upld'][...] = self._pld_upld
+                rds['upld_pld'][...] = self._upld_pld
+
+        if self._bs_flag:
+            bsds = self._h5_hdl['boot_arrs']
+
+            bsds['upld_ul'][...] = self._upld_bs_ul
+            bsds['upld_ll'][...] = self._upld_bs_ll
+            bsds['upld_flg'][...] = self._upld_bs_flg
 
             if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-                rds['pld'] = self._pld
+
+                bsds['pld_ul'][...] = self._pld_bs_ul
+                bsds['pld_ll'][...] = self._pld_bs_ll
+                bsds['pld_flg'][...] = self._pld_bs_flg
 
                 if self._ans_stl == 'alt_peel':
-                    rds['pld_upld'] = self._pld_upld
-                    rds['upld_pld'] = self._upld_pld
+                    bsds['pld_upld_ul'][...] = self._pld_upld_bs_ul
+                    bsds['pld_upld_ll'][...] = self._pld_upld_bs_ll
+                    bsds['pld_upld_flg'][...] = self._pld_upld_bs_flg
 
-            if self._bs_flag:
-                bsds = self._h5_hdl.create_group('boot_arrs')
+                    bsds['upld_pld_ul'][...] = self._upld_pld_bs_ul
+                    bsds['upld_pld_ll'][...] = self._upld_pld_bs_ll
+                    bsds['upld_pld_flg'][...] = self._upld_pld_bs_flg
 
-                bsds['upld_ul'] = self._upld_bs_ul
-                bsds['upld_ll'] = self._upld_bs_ll
-                bsds['upld_flg'] = self._upld_bs_flg
-
-                if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-                    bsds['pld_ul'] = self._pld_bs_ul
-                    bsds['pld_ll'] = self._pld_bs_ll
-                    bsds['pld_flg'] = self._pld_bs_flg
-
-                    if self._ans_stl == 'alt_peel':
-                        bsds['pld_upld_ul'] = self._pld_upld_bs_ul
-                        bsds['pld_upld_ll'] = self._pld_upld_bs_ll
-                        bsds['pld_upld_flg'] = self._pld_upld_bs_flg
-
-                        bsds['upld_pld_ul'] = self._upld_pld_bs_ul
-                        bsds['upld_pld_ll'] = self._upld_pld_bs_ll
-                        bsds['upld_pld_flg'] = self._upld_pld_bs_flg
-
-            self._h5_hdl.flush()
+        self._h5_hdl.flush()
         return
 
     def _get_dts(self, refr, test):

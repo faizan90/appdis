@@ -23,6 +23,7 @@ class AppearDisappearSettings:
 
         self._bs_flag = False
         self._hdf5_flag = True
+        self._fh_flag = 0
 
         self._ans_prms_set_flag = False
         self._out_dir_set_flag = False
@@ -90,11 +91,19 @@ class AppearDisappearSettings:
         self._out_dir_set_flag = True
         return
 
-    def save_outputs_to_hdf5_on_off(self, on=True):
+    def save_outputs_to_hdf5_on_off(self, on=True, flush_flag=0):
+
+        # flush_flag:
+        #    0: flush arrays to hdfs at the end of analysis
+        #    1: flush after every iteration of the first for loop
+        #    2: flush after every iteration of the second for loop
 
         assert isinstance(on, bool)
+        assert isinstance(flush_flag, int)
+        assert (flush_flag >= 0) and (flush_flag <= 2)
 
         self._hdf5_flag = on
+        self._fh_flag = flush_flag
         return
 
     def verify(self):
