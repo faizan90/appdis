@@ -19,11 +19,13 @@ class AppearDisappearSettings:
         self.verbose = verbose
 
         self._poss_ans_stls = ['raw', 'peel', 'alt_peel']
-        self._poss_time_wins = ['month', 'year', 'range']
+        self._poss_time_wins = ['month', 'year']  # , 'range'
 
         self._bs_flag = False
         self._hdf5_flag = True
         self._fh_flag = 0
+
+        self._vdl = 0
 
         self._ans_prms_set_flag = False
         self._out_dir_set_flag = False
@@ -91,7 +93,7 @@ class AppearDisappearSettings:
         self._out_dir_set_flag = True
         return
 
-    def save_outputs_to_hdf5_on_off(self, on=True, flush_flag=0):
+    def save_outputs_to_hdf5_on_off(self, on, flush_flag):
 
         # flush_flag:
         #    0: flush arrays to hdfs at the end of analysis
@@ -106,6 +108,19 @@ class AppearDisappearSettings:
         self._fh_flag = flush_flag
         return
 
+    def save_volume_data_level(self, level):
+
+        # level:
+        #    0: save no volume data
+        #    1: save unpeeled and peeled volume data
+        #    2: save bootstrapping volume data as well
+
+        assert isinstance(level, int)
+        assert 0 <= level <= 2
+
+        self._vdl = level
+        return
+
     def verify(self):
 
         assert self._ans_prms_set_flag
@@ -116,4 +131,3 @@ class AppearDisappearSettings:
 
         self._in_vrfd_flag = True
         return
-

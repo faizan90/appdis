@@ -12,8 +12,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
+from scipy.spatial import ConvexHull
 
-from ..analysis import AppearDisappearAnalysis
+from .analysis import AppearDisappearAnalysis
 
 plt.ioff()
 
@@ -32,7 +33,6 @@ class AppearDisappearPlot:
         self.var_labs_list = adan.var_labs_list
 
         self.dont_read_vars = (
-            '_data_arr',
             '_uvecs',
             '_out_dir',  #  it is important to ignore this
             '_dn_flg',
@@ -534,5 +534,106 @@ class AppearDisappearPlot:
 
         assert self._vdl
 
+        labs = []
+        upld_volumes = []
+        loo_vols = []
+
+        if self._twt == 'year':
+            lab_cond = 1
+
+        if self._twt == 'month':
+            lab_cond = 2
+
+        elif self._twt == 'range':
+            lab_cond = 3
+
+        for i in range(self._mwi):
+            ct = self._rdts['cts'][i]
+
+            dts = self._rdts['dts'][i, :ct]
+            idxs = self._rdts['idx'][i, :ct]
+
+            lab_int = self._rdts['lab'][i]
+
+            if lab_cond == 1:
+                lab = lab_int
+
+            if lab_cond == 2:
+                lab = f'{lab_int}'[:4] + '-' + f'{lab_int}'[4:]
+
+            elif lab_cond == 3:
+                lab = lab_int
+
+            labs.append(lab)
+
+            hull_pt_idxs = dts == 1
+            hull_pts = self._data_arr[idxs[hull_pt_idxs], :self._ans_dims]
+
+            upld_volumes.append(ConvexHull(hull_pts).volume)
+
+            # remove a pt and cmpt volume
+            n_hull_pts = int(hull_pt_idxs.sum())
+            loo_idxs = np.ones(n_hull_pts, dtype=bool)
+            for j in range(n_hull_pts):
+                loo_idxs[j] = False
+
+                loo_vols.append([i, ConvexHull(hull_pts[loo_idxs]).volume])
+
+                loo_idxs[j] = True
+
+        plt_xs = np.arange(len(labs))
+
+        loo_vols = np.array(loo_vols)
+
+        plt.figure(figsize=(20, 7))
+
+        plt.scatter(
+            loo_vols[:, 0],
+            loo_vols[:, 1],
+            marker='o',
+            alpha=0.3,
+            label='unpeeled leave-one',
+            color='C1')
+
+        plt.plot(
+            plt_xs,
+            upld_volumes,
+            marker='o',
+            alpha=0.6,
+            label='unpeeled',
+            color='C0')
+
+        ttl = f'''
+        Moving window convex hull volumes
+
+        Analysis style: {self._ans_stl}
+        Window type: {self._twt}
+        {self._ans_dims} dimensions analyzed
+        {self._n_uvecs:1.0E} unit vectors
+        Window size: {self._ws} {self._twt}(s)
+        Starting, ending {self._twt}(s): {labs[0]}, {labs[-1]}
+        '''
+
+        plt.title(ttl, fontdict={'ha': 'right'}, loc='right')
+
+        plt.xlabel(f'Step ({self._twt}(s))')
+        plt.ylabel(f'{self._ans_dims}D Volume')
+
+        n_tick_vals = self._mwi
+        inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))
+
+        ticks = plt_xs[::inc]
+        tick_labs = labs[::inc][:plt_xs.shape[0]]
+
+        plt.xticks(ticks, tick_labs, rotation=90)
+
+        plt.grid()
+        plt.legend()
+
+        out_fig_name = 'chull_volumes.png'
+
+        plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
+
+        plt.close()
         return
 

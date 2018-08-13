@@ -9,8 +9,6 @@ import time
 import pickle
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-
 from appdis import (
     AppearDisappearData,
     AppearDisappearSettings,
@@ -29,20 +27,20 @@ def main():
     fig_size = (15, 14)
     n_dims = 3
     ws = 5  # window size
-    analysis_style = 'alt_peel'
+    analysis_style = 'raw'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
 
+    peel_depth = 1  # greater than this are kept
     n_boots = 0
 
     ann_flag = False
     ann_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
-               f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs')
-
-    peel_depth = 1  # greater than this are kept
+               f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
+               f'{peel_depth}_pldt')
 
     print('out_dir:', out_dir)
 
@@ -72,6 +70,9 @@ def main():
         ad_sett.set_boot_strap_on_off(n_boots)
         ad_sett.set_outputs_directory(out_dir)
         ad_sett.save_outputs_to_hdf5_on_off(True, 2)
+
+        ad_sett.save_volume_data_level(1)
+
         ad_sett.verify()
 
         ad_ans = AppearDisappearAnalysis()
@@ -90,7 +91,8 @@ def main():
     ad_plot.set_fig_props(fig_size, n_ticks, cmap)
     ad_plot.verify()
 
-    ad_plot.plot_app_dis()
+#     ad_plot.plot_app_dis()
+    ad_plot.plot_volumes()
     return
 
 

@@ -51,11 +51,13 @@ class AppearDisappearAnalysis:
             '_n_bs',
             '_hdf5_flag',
             '_fh_flag',
+            '_vdl',
             )
 
         self._inter_vars_labs = (
             '_mwr',
             '_mwi',
+            '_mss',
             )
 
         self._app_dis_vars_labs = (
@@ -64,6 +66,10 @@ class AppearDisappearAnalysis:
             '_pld',
             '_pld_upld',
             '_upld_pld',
+            )
+
+        self._dts_vars_labs = (
+            '_rdts',
             )
 
         self._boot_vars_labs = (
@@ -83,13 +89,20 @@ class AppearDisappearAnalysis:
 
         # sequence matters
         self.h5_ds_names = (
-            'in_data', 'settings', 'inter_vars', 'app_dis_arrs', 'boot_arrs')
+            'in_data',
+            'settings',
+            'inter_vars',
+            'app_dis_arrs',
+            'dts_vars',
+            'boot_arrs',
+            )
 
         self.var_labs_list = (
             self._data_vars_labs,
             self._sett_vars_labs,
             self._inter_vars_labs,
             self._app_dis_vars_labs,
+            self._dts_vars_labs,
             self._boot_vars_labs
             )
 
@@ -229,16 +242,35 @@ class AppearDisappearAnalysis:
             if self.verbose:
                 print('\n')
                 _ridx = np.where(ris)[0]
-                rbeg_time = self._t_idx[_ridx[0]]
+                rbeg_time = self._t_idx[_ridx[+0]]
                 rend_time = self._t_idx[_ridx[-1]]
                 print('Reference begin and end time:', rbeg_time, rend_time)
 
             refr = cd_arr[ris, :].copy('c')
 
-            if pl_flg:
+            if pl_flg or self._vdl:
                 refr_refr_dts = self._get_dts(refr, refr)
                 refr_pldis = refr_refr_dts > self._pl_dth
                 refr_pld = refr[refr_pldis, :]
+
+                if self._vdl:
+                    ct = refr_refr_dts.shape[0]
+                    self._rdts['cts'][i] = ct
+                    self._rdts['dts'][i, :ct] = refr_refr_dts
+                    self._rdts['idx'][i, :ct] = np.where(ris)[0]
+
+                    step_lab = ''
+
+                    if self._twt == 'year':
+                        step_lab = int(self._t_idx[ris][0].strftime('%Y'))
+
+                    elif self._twt == 'month':
+                        step_lab = int(self._t_idx[ris][0].strftime('%Y%m'))
+
+                    elif self._twt == 'range':
+                        step_lab = self._t_idx[ris][0]
+
+                    self._rdts['lab'][i] = step_lab
 
                 if self._bs_flag:
                     rpis = np.zeros_like(ris, dtype=bool)
@@ -259,7 +291,7 @@ class AppearDisappearAnalysis:
 
                 if self.verbose:
                     _tidx = np.where(tis)[0]
-                    tbeg_time = self._t_idx[_tidx[0]]
+                    tbeg_time = self._t_idx[_tidx[+0]]
                     tend_time = self._t_idx[_tidx[-1]]
                     print('\tTest begin and end time:', tbeg_time, tend_time)
 
@@ -347,16 +379,28 @@ class AppearDisappearAnalysis:
         assert max_val > self._ws
 
         if (self._twt == 'month') or (self._twt == 'year'):
+
             unq_vals = np.unique(win_rng)
             mwi = unq_vals.shape[0] - self._ws
 
         elif self._twt == 'range':
             mwi = win_rng.shape[0] - self._ws
+            # max ct no implemented yet!
 
         self._mwr = win_rng
         self._mwi = mwi + 1
 
         assert self._mwi > 1
+
+        max_steps = 0
+        for i in range(self._mwi):
+            ris = (self._mwr >= i) & (self._mwr < (i + self._ws))
+            max_steps = max(max_steps, ris.sum())
+
+        max_steps = int(max_steps)
+        assert max_steps
+
+        self._mss = max_steps
 
         self._mw_rng_cmptd_flag = True
         return
@@ -376,6 +420,24 @@ class AppearDisappearAnalysis:
             (self._mwi, self._mwi), np.nan, dtype=np.float64, order='c')
 
         self._dn_flg = np.zeros_like(self._upld, dtype=bool)
+
+        if self._vdl:
+
+            # these 3 should be copied for all
+            vol_dt = np.dtype([
+                ('cts', np.int64, (self._mwi,)),
+                ('lab', np.int64, (self._mwi,)),
+                ('idx', np.int64, (self._mwi, self._mss)),
+                ('dts', np.int64, (self._mwi, self._mss))])
+
+            vol_cts = np.zeros(self._mwi, dtype=np.int64, order='c')
+            vol_lab = vol_cts.copy()
+            vol_idx = np.zeros(
+                (self._mwi, self._mss), dtype=np.int64, order='c')
+            vol_dts = vol_idx.copy()
+
+            self._rdts = np.array(
+                (vol_cts, vol_lab, vol_idx, vol_dts), dtype=vol_dt, order='c')
 
         if self._bs_flag:
             self._upld_bs_ul = np.full(self._upld.shape, -np.inf)
@@ -425,7 +487,11 @@ class AppearDisappearAnalysis:
             str(self._h5_path), mode='w', driver='core')
 
         # sequence matters
-        h5_dss_list = ['in_data', 'settings', 'inter_vars', 'app_dis_arrs']
+        h5_dss_list = list(self.h5_ds_names[:4])
+
+        if self._vdl:
+            h5_dss_list.append('dts_vars')
+
         if self._bs_flag:
             h5_dss_list.append('boot_arrs')
 
@@ -438,7 +504,6 @@ class AppearDisappearAnalysis:
             var_labs = self.var_labs_list[i]
 
             for lab in var_labs:
-                print(lab)
 
                 try:
                     var = getattr(self, lab)
@@ -458,14 +523,13 @@ class AppearDisappearAnalysis:
                 elif ((self._twt == 'month') or
                       (self._twt == 'year')) and (lab == '_t_idx'):
 
-                    _unit = '1s'
-                    _td = pd.Timedelta(_unit)
+                    _td = pd.Timedelta('1s')
                     _min_t = pd.Timestamp("1970-01-01")
 
                     dss[lab] = (self._t_idx - _min_t) // _td
 
                 else:
-                    raise KeyError(lab)
+                    raise KeyError(lab, type(var))
 
         self._h5_hdl.flush()
         return
@@ -485,6 +549,12 @@ class AppearDisappearAnalysis:
 
         for rd in rds.keys():
             exec(f'rds[\'{rd}\'][...] = self.{rd}')
+
+        if self._vdl:
+
+            vds = self._h5_hdl['dts_vars']
+            for vd in vds.keys():
+                exec(f'vds[\'{vd}\'][...] = self.{vd}')
 
         if self._bs_flag:
             bsds = self._h5_hdl['boot_arrs']
