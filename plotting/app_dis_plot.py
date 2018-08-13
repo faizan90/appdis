@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
 
-from ..analysis import AppearDisappearAnalysis
+from .analysis import AppearDisappearAnalysis
 
 plt.ioff()
 
@@ -26,6 +26,15 @@ class AppearDisappearPlot:
         self.verbose = verbose
 
         adan = AppearDisappearAnalysis()
+        self._data_vars_labs = adan._data_vars_labs
+
+        self._sett_vars_labs = adan._sett_vars_labs
+
+        self._inter_vars_labs = adan._inter_vars_labs
+
+        self._app_dis_vars_labs = adan._app_dis_vars_labs
+
+        self._boot_vars_labs = adan._boot_vars_labs
 
         self.h5_ds_names = adan.h5_ds_names
 
@@ -34,7 +43,6 @@ class AppearDisappearPlot:
         self.dont_read_vars = (
             '_data_arr',
             '_uvecs',
-            '_out_dir',  #  it is important to ignore this
             '_dn_flg',
             '_upld_bs_flg',
             '_pld_bs_flg',
@@ -164,6 +172,8 @@ class AppearDisappearPlot:
         if (self._twt == 'month') or (self._twt == 'year'):
 
             self._t_idx = pd.to_datetime(self._t_idx, unit='s')
+
+        self._out_dir = Path(self._out_dir)
 
         # add mwi to nvs for the diagonal being always nan
         nvs = (~np.isnan(self._upld)).sum() + self._mwi
@@ -519,20 +529,3 @@ class AppearDisappearPlot:
         if self._bs_flag:
             self._plot_bs()
         return
-
-    def plot_volumes(self):
-
-        if not self._bef_plot_vars_set:
-            self._bef_plot()
-
-        self._plot_vols()
-        return
-
-    def _plot_vols(self):
-
-        assert self._bef_plot_vars_set
-
-        assert self._vdl
-
-        return
-
