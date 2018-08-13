@@ -70,6 +70,7 @@ class AppearDisappearAnalysis:
 
         self._dts_vars_labs = (
             '_rdts',
+            '_rpdts',
             )
 
         self._boot_vars_labs = (
@@ -272,6 +273,14 @@ class AppearDisappearAnalysis:
 
                     self._rdts['lab'][i] = step_lab
 
+                    if pl_flg:
+                        refr_pld_dts = self._get_dts(refr_pld, refr_pld)
+                        pct = refr_pld_dts.shape[0]
+                        self._rpdts['cts'][i] = pct
+                        self._rpdts['dts'][i, :pct] = refr_pld_dts
+                        self._rpdts['idx'][i, :pct] = np.where(ris)[0][refr_pldis]
+                        self._rpdts['lab'][i] = self._rdts['lab'][i]
+
                 if self._bs_flag:
                     rpis = np.zeros_like(ris, dtype=bool)
                     rpis = ris | rpis
@@ -449,6 +458,9 @@ class AppearDisappearAnalysis:
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
             self._pld = self._upld.copy()
+
+            self._rpdts = np.array(
+                (vol_cts, vol_lab, vol_idx, vol_dts), dtype=vol_dt, order='c')
 
             if self._bs_flag:
                 self._pld_bs_ul = np.full(self._pld.shape, -np.inf)

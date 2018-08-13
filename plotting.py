@@ -528,14 +528,10 @@ class AppearDisappearPlot:
         self._plot_vols()
         return
 
-    def _plot_vols(self):
-
-        assert self._bef_plot_vars_set
-
-        assert self._vdl
+    def _get_vols(self, dts_arr):
 
         labs = []
-        upld_volumes = []
+        vols = []
         loo_vols = []
 
         if self._twt == 'year':
@@ -548,12 +544,12 @@ class AppearDisappearPlot:
             lab_cond = 3
 
         for i in range(self._mwi):
-            ct = self._rdts['cts'][i]
+            ct = dts_arr['cts'][i]
 
-            dts = self._rdts['dts'][i, :ct]
-            idxs = self._rdts['idx'][i, :ct]
+            dts = dts_arr['dts'][i, :ct]
+            idxs = dts_arr['idx'][i, :ct]
 
-            lab_int = self._rdts['lab'][i]
+            lab_int = dts_arr['lab'][i]
 
             if lab_cond == 1:
                 lab = lab_int
@@ -569,7 +565,7 @@ class AppearDisappearPlot:
             hull_pt_idxs = dts == 1
             hull_pts = self._data_arr[idxs[hull_pt_idxs], :self._ans_dims]
 
-            upld_volumes.append(ConvexHull(hull_pts).volume)
+            vols.append(ConvexHull(hull_pts).volume)
 
             # remove a pt and cmpt volume
             n_hull_pts = int(hull_pt_idxs.sum())
@@ -581,27 +577,59 @@ class AppearDisappearPlot:
 
                 loo_idxs[j] = True
 
-        plt_xs = np.arange(len(labs))
-
         loo_vols = np.array(loo_vols)
+        return (labs, vols, loo_vols)
+
+    def _plot_vols(self):
+
+        assert self._bef_plot_vars_set
+
+        assert self._vdl
+
+        ulabs, uvols, uloo_vols = self._get_vols(self._rdts)
+
+        plt_xs = np.arange(len(ulabs))
 
         plt.figure(figsize=(20, 7))
 
         plt.scatter(
-            loo_vols[:, 0],
-            loo_vols[:, 1],
+            uloo_vols[:, 0],
+            uloo_vols[:, 1],
             marker='o',
-            alpha=0.3,
+            alpha=0.2,
             label='unpeeled leave-one',
-            color='C1')
+            color='C0',
+            zorder=9)
 
         plt.plot(
             plt_xs,
-            upld_volumes,
+            uvols,
             marker='o',
             alpha=0.6,
             label='unpeeled',
-            color='C0')
+            color='C0',
+            zorder=10)
+
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+            plabs, pvols, ploo_vols = self._get_vols(self._rpdts)
+
+            plt.scatter(
+                ploo_vols[:, 0],
+                ploo_vols[:, 1],
+                marker='o',
+                alpha=0.2,
+                label='peeled leave-one',
+                color='C1',
+                zorder=5)
+
+            plt.plot(
+                plt_xs,
+                pvols,
+                marker='o',
+                alpha=0.6,
+                label='peeled',
+                color='C1',
+                zorder=6)
 
         ttl = f'''
         Moving window convex hull volumes
@@ -610,8 +638,9 @@ class AppearDisappearPlot:
         Window type: {self._twt}
         {self._ans_dims} dimensions analyzed
         {self._n_uvecs:1.0E} unit vectors
+        Peeling depth: {self._pl_dth}
         Window size: {self._ws} {self._twt}(s)
-        Starting, ending {self._twt}(s): {labs[0]}, {labs[-1]}
+        Starting, ending {self._twt}(s): {ulabs[0]}, {ulabs[-1]}
         '''
 
         plt.title(ttl, fontdict={'ha': 'right'}, loc='right')
@@ -623,7 +652,7 @@ class AppearDisappearPlot:
         inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))
 
         ticks = plt_xs[::inc]
-        tick_labs = labs[::inc][:plt_xs.shape[0]]
+        tick_labs = ulabs[::inc][:plt_xs.shape[0]]
 
         plt.xticks(ticks, tick_labs, rotation=90)
 

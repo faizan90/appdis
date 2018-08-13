@@ -22,12 +22,12 @@ def main():
 
     in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e2)
+    n_uvecs = int(1e3)
     n_cpus = 'auto'
     fig_size = (15, 14)
-    n_dims = 3
-    ws = 5  # window size
-    analysis_style = 'raw'
+    n_dims = 6
+    ws = 20  # window size
+    analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
@@ -91,7 +91,7 @@ def main():
     ad_plot.set_fig_props(fig_size, n_ticks, cmap)
     ad_plot.verify()
 
-#     ad_plot.plot_app_dis()
+    ad_plot.plot_app_dis()
     ad_plot.plot_volumes()
     return
 
