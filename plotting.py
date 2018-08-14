@@ -23,7 +23,7 @@ from depth_funcs import depth_ftn_mp as dftn
 from .misc import ret_mp_idxs
 from .analysis import AppearDisappearAnalysis
 from .settings import AppearDisappearSettings
-from .normcop_cyftns import get_corrcoeff, get_asymms_sample
+from .cyth import get_corrcoeff, get_asymms_sample
 
 plt.ioff()
 
@@ -929,7 +929,10 @@ class AppearDisappearPlot:
 
             chull_idxs.append(bd_idxs)
 
-        chull_idxs = np.unique(np.array(np.concatenate(chull_idxs)))
+        _ = np.unique(np.array(np.concatenate(chull_idxs)))
+
+        chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
+        chull_idxs[_] = True
         chull_time_idxs = self._t_idx[chull_idxs]
 
         return (chull_idxs, chull_time_idxs)
@@ -940,20 +943,21 @@ class AppearDisappearPlot:
 
         refr_refr_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
 
-        upld_chull_idxs = np.where(refr_refr_dts == 1)[0]
+        upld_chull_idxs = refr_refr_dts <= self._pl_dth
         upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
 
         pld_chull_idxs = None
         pld_chull_time_idxs = None
 
         if (style == 'peel') or (style == 'alt_peel'):
-            refr_pld = cd_arr[refr_refr_dts > self._pl_dth].copy('c')
+            refr_pld = cd_arr[~upld_chull_idxs].copy('c')
 
             refr_refr_pld_dts = dftn(
                 refr_pld, refr_pld, self._uvecs, self._n_cpus)
 
-            pld_chull_idxs = np.where(refr_refr_pld_dts == 1)[0]
-            pld_chull_time_idxs = self._t_idx[pld_chull_idxs]
+            pld_chull_idxs = refr_refr_pld_dts <= self._pl_dth
+            pld_chull_time_idxs = (
+                self._t_idx[~upld_chull_idxs][pld_chull_idxs])
 
         return (
             upld_chull_idxs,
@@ -1048,28 +1052,47 @@ class AppearDisappearPlot:
 
                 probs_arr_j = probs_arr[:, j]
 
-                bool_idxs = np.zeros(self._n_data_pts, dtype=bool)
+                _idxs = self.get_boundary_point_idxs(style, data_type)
 
-                chull_idxs = self.get_boundary_point_idxs(
-                    style, data_type)[0]
+                if (style == 'peel') or (style == 'alt_peel'):
 
-                bool_idxs[chull_idxs] = True
+                    probs_i = probs_arr_i[~_idxs[0]]
+                    probs_j = probs_arr_j[~_idxs[0]]
 
-                correl = get_corrcoeff(probs_arr_i, probs_arr_j)
+                    non_bd_i = probs_i[~_idxs[2]]
+                    non_bd_j = probs_j[~_idxs[2]]
 
-                asymms = get_asymms_sample(probs_arr_i, probs_arr_j)
+                    bd_i = probs_i[_idxs[2]]
+                    bd_j = probs_j[_idxs[2]]
+
+                elif style == 'raw':
+
+                    probs_i = probs_arr_i
+                    probs_j = probs_arr_j
+
+                    non_bd_i = probs_arr_i[~_idxs[0]]
+                    non_bd_j = probs_arr_j[~_idxs[0]]
+
+                    bd_i = probs_arr_i[_idxs[0]]
+                    bd_j = probs_arr_j[_idxs[0]]
+
+                nchull_pts = bd_i.shape[0]
+
+                correl = get_corrcoeff(probs_i, probs_j)
+
+                asymms = get_asymms_sample(probs_i, probs_j)
 
                 plt.scatter(
-                    probs_arr_i[~bool_idxs],
-                    probs_arr_j[~bool_idxs],
+                    non_bd_i,
+                    non_bd_j,
                     marker='o',
                     alpha=0.1,
                     label='non-bd pt',
                     color='C0')
 
                 plt.scatter(
-                    probs_arr_i[bool_idxs],
-                    probs_arr_j[bool_idxs],
+                    bd_i,
+                    bd_j,
                     marker='o',
                     alpha=0.3,
                     label='bd pt',
@@ -1084,7 +1107,7 @@ class AppearDisappearPlot:
                     asymms['asymm_1'],
                     asymms['asymm_2'],
                     self._n_data_pts,
-                    chull_idxs.shape[0])
+                    nchull_pts)
 
                 plt.title(
                     cttl,
