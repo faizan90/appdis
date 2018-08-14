@@ -1034,6 +1034,7 @@ class AppearDisappearPlot:
         Asymmetry 1: %1.0E
         Asymmetry 2: %1.0E
         Total steps: %d
+        %d chull points
         '''
 
         emp_cop_out_dir = self._out_dir / 'empirical_copulas'
@@ -1082,7 +1083,8 @@ class AppearDisappearPlot:
                     correl,
                     asymms['asymm_1'],
                     asymms['asymm_2'],
-                    self._n_data_pts)
+                    self._n_data_pts,
+                    chull_idxs.shape[0])
 
                 plt.title(
                     cttl,
