@@ -31,6 +31,7 @@ plt.ioff()
 class AppearDisappearPlot:
 
     def __init__(self, verbose=True):
+
         assert isinstance(verbose, bool)
 
         self.verbose = verbose
@@ -138,6 +139,202 @@ class AppearDisappearPlot:
             n_cpus = max(1, psutil.cpu_count() - 1)
 
         self._n_cpus = n_cpus
+        return
+
+    def plot_app_dis(self):
+
+        self._plot_app_dis(self._upld, 'upld_plot.png', 'Both unpeeled')
+
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
+            self._plot_app_dis(self._pld, 'pld_plot.png', 'Both peeled')
+
+            if self._ans_stl == 'alt_peel':
+                self._plot_app_dis(
+                    self._pld_upld,
+                    'pld_upld_plot.png',
+                    'Peeled-unpeeled')
+
+                self._plot_app_dis(
+                    self._upld_pld,
+                    'upld_pld_plot.png',
+                    'Unpeeled-peeled')
+
+        if self._bs_flag:
+            self._plot_bs()
+        return
+
+    def plot_volumes(self, loo_flag=False):
+
+        assert isinstance(loo_flag, bool)
+
+        self.loo_flag = loo_flag
+
+        assert self._in_vrfd_flag
+
+        self._plot_vols()
+        return
+
+    def get_boundary_point_idxs(self, style, data_type):
+
+        assert self._in_vrfd_flag
+
+        assert isinstance(style, str)
+        assert style in self._poss_ans_stls
+
+        poss_data_types = ['window', 'full']
+
+        assert isinstance(data_type, str)
+        assert data_type in poss_data_types
+
+        if data_type == 'window':
+            if style == 'raw':
+                dts_arr = self._rdts
+
+            elif (style == 'peel') or (style == 'alt_peel'):
+
+                assert (
+                    (self._ans_stl == 'peel') or
+                    (self._ans_stl == 'alt_peel'))
+
+                dts_arr = self._rpdts
+
+            else:
+                raise NotImplementedError
+
+            res = self._get_win_bd_idxs(dts_arr)
+
+        elif data_type == 'full':
+            res = self._get_full_bd_idxs(style)
+
+        else:
+            raise NotImplementedError
+
+        return res
+
+    def plot_ecops(self, style, data_type):
+
+        assert self._in_vrfd_flag
+
+        assert isinstance(style, str)
+        assert style in self._poss_ans_stls
+
+        poss_data_types = ['window', 'full']
+
+        assert isinstance(data_type, str)
+        assert data_type in poss_data_types
+
+        assert self._in_vrfd_flag
+
+        probs_arr = np.empty(
+            (self._n_data_pts, self._ans_dims), dtype=np.float64, order='c')
+
+        for i in range(self._ans_dims):
+            probs_arr[:, i] = (
+                rankdata(self._data_arr[:, i]) / (self._n_data_pts + 1))
+
+        plt.figure(figsize=(10, 10))
+
+        ttl = f'''
+        PCA weights' empirical copulas
+
+        Analysis style: {style}
+        Window type: {self._twt}
+        Data Type: {data_type}
+        {self._ans_dims} dimensions analyzed
+        {self._n_uvecs:1.0E} unit vectors
+        Peeling depth: {self._pl_dth}
+        Spearman correlation: %0.4f
+        Asymmetry 1: %2.0E
+        Asymmetry 2: %2.0E
+        Total steps: %d
+        %d chull points
+        '''
+
+        emp_cop_out_dir = self._out_dir / 'empirical_copulas'
+        emp_cop_out_dir.mkdir(exist_ok=True)
+
+        for i in range(self._ans_dims):
+            probs_arr_i = probs_arr[:, i]
+            for j in range(self._ans_dims):
+                if i >= j:
+                    continue
+
+                probs_arr_j = probs_arr[:, j]
+
+                _idxs = self.get_boundary_point_idxs(style, data_type)
+
+                if (style == 'peel') or (style == 'alt_peel'):
+
+                    probs_i = probs_arr_i[~_idxs[0]]
+                    probs_j = probs_arr_j[~_idxs[0]]
+
+                    non_bd_i = probs_i[~_idxs[2]]
+                    non_bd_j = probs_j[~_idxs[2]]
+
+                    bd_i = probs_i[_idxs[2]]
+                    bd_j = probs_j[_idxs[2]]
+
+                elif style == 'raw':
+
+                    probs_i = probs_arr_i
+                    probs_j = probs_arr_j
+
+                    non_bd_i = probs_arr_i[~_idxs[0]]
+                    non_bd_j = probs_arr_j[~_idxs[0]]
+
+                    bd_i = probs_arr_i[_idxs[0]]
+                    bd_j = probs_arr_j[_idxs[0]]
+
+                nchull_pts = bd_i.shape[0]
+
+                correl = get_corrcoeff(probs_i, probs_j)
+
+                asymms = get_asymms_sample(probs_i, probs_j)
+
+                plt.scatter(
+                    non_bd_i,
+                    non_bd_j,
+                    marker='o',
+                    alpha=0.1,
+                    label='non-bd pt',
+                    color='C0')
+
+                plt.scatter(
+                    bd_i,
+                    bd_j,
+                    marker='o',
+                    alpha=0.3,
+                    label='bd pt',
+                    color='C1')
+
+                plt.xlabel(f'Dimension: {i}')
+                plt.ylabel(f'Dimension: {j}')
+                plt.legend(framealpha=0.5)
+
+                cttl = ttl % (
+                    correl,
+                    asymms['asymm_1'],
+                    asymms['asymm_2'],
+                    probs_i.shape[0],
+                    nchull_pts)
+
+                plt.title(
+                    cttl,
+                    fontdict={'ha': 'right'},
+                    loc='right')
+
+                plt.grid()
+
+                out_fig_name = (
+                    f'{data_type}_{style}_pca_wts_emp_cop_{i}_{j}.png')
+
+                plt.savefig(
+                    str(emp_cop_out_dir / out_fig_name), bbox_inches='tight')
+
+                plt.clf()
+
+        plt.close()
         return
 
     def _bef_plot(self):
@@ -519,40 +716,6 @@ class AppearDisappearPlot:
                     'Unpeeled-peeled (Bootstrap)')
         return
 
-    def plot_app_dis(self):
-
-        self._plot_app_dis(self._upld, 'upld_plot.png', 'Both unpeeled')
-
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-            self._plot_app_dis(self._pld, 'pld_plot.png', 'Both peeled')
-
-            if self._ans_stl == 'alt_peel':
-                self._plot_app_dis(
-                    self._pld_upld,
-                    'pld_upld_plot.png',
-                    'Peeled-unpeeled')
-
-                self._plot_app_dis(
-                    self._upld_pld,
-                    'upld_pld_plot.png',
-                    'Unpeeled-peeled')
-
-        if self._bs_flag:
-            self._plot_bs()
-        return
-
-    def plot_volumes(self, loo_flag=False):
-
-        assert isinstance(loo_flag, bool)
-
-        self.loo_flag = loo_flag
-
-        assert self._in_vrfd_flag
-
-        self._plot_vols()
-        return
-
     @staticmethod
     def _get_vols(step_idxs, args):
 
@@ -621,7 +784,8 @@ class AppearDisappearPlot:
         vols = np.array(vols)
         labs = np.array(labs)
         n_chull_cts = np.array(n_chull_cts)
-        chull_idxs = np.unique(np.array(np.concatenate(chull_idxs)))
+        chull_idxs = np.unique(np.concatenate(chull_idxs))
+
         return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
 
     def _prep_for_vols(self, *args):
@@ -685,18 +849,19 @@ class AppearDisappearPlot:
 
             dts_arr, = args
 
+            args = (
+                mp_cond,
+                lab_cond,
+                self._ans_dims,
+                self.loo_flag,
+                dts_arr,
+                self._data_arr)
+
             (labs,
              vols,
              loo_vols,
              n_chull_cts,
-             chull_idxs) = AppearDisappearPlot._get_vols(
-                idxs_rng,
-                (mp_cond,
-                 lab_cond,
-                 self._ans_dims,
-                 self.loo_flag,
-                 dts_arr,
-                 self._data_arr))
+             chull_idxs) = AppearDisappearPlot._get_vols(idxs_rng, args)
 
         return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
 
@@ -925,11 +1090,11 @@ class AppearDisappearPlot:
             dts = dts_arr['dts'][i, :ct]
             idxs = dts_arr['idx'][i, :ct]
 
-            bd_idxs = idxs[dts == 1]
+            bd_idxs = idxs[dts <= self._pl_dth]
 
             chull_idxs.append(bd_idxs)
 
-        _ = np.unique(np.array(np.concatenate(chull_idxs)))
+        _ = np.unique(np.concatenate(chull_idxs))
 
         chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
         chull_idxs[_] = True
@@ -964,166 +1129,3 @@ class AppearDisappearPlot:
             upld_chull_time_idxs,
             pld_chull_idxs,
             pld_chull_time_idxs)
-
-    def get_boundary_point_idxs(self, style, data_type):
-
-        assert self._in_vrfd_flag
-
-        assert isinstance(style, str)
-        assert style in self._poss_ans_stls
-
-        poss_data_types = ['window', 'full']
-
-        assert isinstance(data_type, str)
-        assert data_type in poss_data_types
-
-        if data_type == 'window':
-            if style == 'raw':
-                dts_arr = self._rdts
-
-            elif (style == 'peel') or (style == 'alt_peel'):
-
-                assert (
-                    (self._ans_stl == 'peel') or
-                    (self._ans_stl == 'alt_peel'))
-
-                dts_arr = self._rpdts
-
-            else:
-                raise NotImplementedError
-
-            res = self._get_win_bd_idxs(dts_arr)
-
-        elif data_type == 'full':
-            res = self._get_full_bd_idxs(style)
-
-        else:
-            raise NotImplementedError
-
-        return res
-
-    def plot_ecops(self, style, data_type):
-
-        assert self._in_vrfd_flag
-
-        assert isinstance(style, str)
-        assert style in self._poss_ans_stls
-
-        poss_data_types = ['window', 'full']
-
-        assert isinstance(data_type, str)
-        assert data_type in poss_data_types
-
-        assert self._in_vrfd_flag
-
-        probs_arr = np.empty(
-            (self._n_data_pts, self._ans_dims), dtype=np.float64, order='c')
-
-        for i in range(self._ans_dims):
-            probs_arr[:, i] = (
-                rankdata(self._data_arr[:, i]) / (self._n_data_pts + 1))
-
-        plt.figure(figsize=(10, 10))
-
-        ttl = f'''
-        PCA weights empirical copulas
-
-        Analysis style: {style}
-        Window type: {self._twt}
-        Data Type: {data_type}
-        {self._ans_dims} dimensions analyzed
-        {self._n_uvecs:1.0E} unit vectors
-        Peeling depth: {self._pl_dth}
-        Spearman correlation: %0.4f
-        Asymmetry 1: %1.0E
-        Asymmetry 2: %1.0E
-        Total steps: %d
-        %d chull points
-        '''
-
-        emp_cop_out_dir = self._out_dir / 'empirical_copulas'
-        emp_cop_out_dir.mkdir(exist_ok=True)
-
-        for i in range(self._ans_dims):
-            probs_arr_i = probs_arr[:, i]
-            for j in range(self._ans_dims):
-                if i >= j:
-                    continue
-
-                probs_arr_j = probs_arr[:, j]
-
-                _idxs = self.get_boundary_point_idxs(style, data_type)
-
-                if (style == 'peel') or (style == 'alt_peel'):
-
-                    probs_i = probs_arr_i[~_idxs[0]]
-                    probs_j = probs_arr_j[~_idxs[0]]
-
-                    non_bd_i = probs_i[~_idxs[2]]
-                    non_bd_j = probs_j[~_idxs[2]]
-
-                    bd_i = probs_i[_idxs[2]]
-                    bd_j = probs_j[_idxs[2]]
-
-                elif style == 'raw':
-
-                    probs_i = probs_arr_i
-                    probs_j = probs_arr_j
-
-                    non_bd_i = probs_arr_i[~_idxs[0]]
-                    non_bd_j = probs_arr_j[~_idxs[0]]
-
-                    bd_i = probs_arr_i[_idxs[0]]
-                    bd_j = probs_arr_j[_idxs[0]]
-
-                nchull_pts = bd_i.shape[0]
-
-                correl = get_corrcoeff(probs_i, probs_j)
-
-                asymms = get_asymms_sample(probs_i, probs_j)
-
-                plt.scatter(
-                    non_bd_i,
-                    non_bd_j,
-                    marker='o',
-                    alpha=0.1,
-                    label='non-bd pt',
-                    color='C0')
-
-                plt.scatter(
-                    bd_i,
-                    bd_j,
-                    marker='o',
-                    alpha=0.3,
-                    label='bd pt',
-                    color='C1')
-
-                plt.xlabel(f'Dimension: {i}')
-                plt.ylabel(f'Dimension: {j}')
-                plt.legend(framealpha=0.5)
-
-                cttl = ttl % (
-                    correl,
-                    asymms['asymm_1'],
-                    asymms['asymm_2'],
-                    self._n_data_pts,
-                    nchull_pts)
-
-                plt.title(
-                    cttl,
-                    fontdict={'ha': 'right'},
-                    loc='right')
-
-                plt.grid()
-
-                out_fig_name = (
-                    f'{data_type}_{style}_pca_wts_emp_cop_{i}_{j}.png')
-
-                plt.savefig(
-                    str(emp_cop_out_dir / out_fig_name), bbox_inches='tight')
-
-                plt.clf()
-
-        plt.close()
-
-        return

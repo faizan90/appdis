@@ -495,6 +495,7 @@ class AppearDisappearAnalysis:
         return
 
     def _init_hdf5_ds(self):
+
         self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
         self._h5_hdl = h5py.File(
             str(self._h5_path), mode='w', driver='core')
