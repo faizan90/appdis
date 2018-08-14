@@ -3,8 +3,9 @@ Created on Aug 8, 2018
 
 @author: Faizan-Uni
 '''
-
+from functools import partial
 from pathlib import Path
+from multiprocessing import Pool
 
 import h5py
 import numpy as np
@@ -14,6 +15,7 @@ from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
 from scipy.spatial import ConvexHull
 
+from .misc import ret_mp_idxs
 from .analysis import AppearDisappearAnalysis
 
 plt.ioff()
@@ -40,6 +42,8 @@ class AppearDisappearPlot:
             '_pld_bs_flg',
             '_pld_upld_bs_flg',
             '_upld_pld_bs_flg')
+
+        self._mp_pool = None
 
         self._h5_path_set_flag = False
         self._out_dir_set_flag = False
@@ -228,7 +232,7 @@ class AppearDisappearPlot:
 
         x = np.arange(vals[0] - 0.5, vals[-1] + 2.5 - self._ws, 1)
 
-        xcs, ycs = np.meshgrid(x, x)
+        xcs, ycs = np.meshgrid(x, x, indexing='ij')
 
         _ps1 = plt.pcolormesh(
             xcs,
@@ -344,7 +348,7 @@ class AppearDisappearPlot:
 
         x = np.arange(vals[0] - 0.5, vals[-1] + 2.5 - self._ws, 1)
 
-        xcs, ycs = np.meshgrid(x, x)
+        xcs, ycs = np.meshgrid(x, x, indexing='ij')
 
         _ps1 = ax_ul.pcolormesh(
             xcs,
@@ -528,22 +532,29 @@ class AppearDisappearPlot:
         self._plot_vols()
         return
 
-    def _get_vols(self, dts_arr):
+    @staticmethod
+    def _get_vols(step_idxs, args):
 
         labs = []
         vols = []
         loo_vols = []
 
-        if self._twt == 'year':
-            lab_cond = 1
+        mp_cond, lab_cond, dims = args[:3]
 
-        if self._twt == 'month':
-            lab_cond = 2
+        if mp_cond:
+            path, dts_path, data_path = args[3:]
 
-        elif self._twt == 'range':
-            lab_cond = 3
+            h5_hdl = h5py.File(path, driver='core', mode='r')
 
-        for i in range(self._mwi):
+            dts_arr = h5_hdl[dts_path][...]
+            data_arr = h5_hdl[data_path][...]
+
+            h5_hdl.close()
+
+        else:
+            dts_arr, data_arr = args[3:]
+
+        for i in step_idxs:
             ct = dts_arr['cts'][i]
 
             dts = dts_arr['dts'][i, :ct]
@@ -554,7 +565,7 @@ class AppearDisappearPlot:
             if lab_cond == 1:
                 lab = lab_int
 
-            if lab_cond == 2:
+            elif lab_cond == 2:
                 lab = f'{lab_int}'[:4] + '-' + f'{lab_int}'[4:]
 
             elif lab_cond == 3:
@@ -563,7 +574,7 @@ class AppearDisappearPlot:
             labs.append(lab)
 
             hull_pt_idxs = dts == 1
-            hull_pts = self._data_arr[idxs[hull_pt_idxs], :self._ans_dims]
+            hull_pts = data_arr[idxs[hull_pt_idxs], :dims]
 
             vols.append(ConvexHull(hull_pts).volume)
 
@@ -578,6 +589,66 @@ class AppearDisappearPlot:
                 loo_idxs[j] = True
 
         loo_vols = np.array(loo_vols)
+        vols = np.array(vols)
+        labs = np.array(labs)
+        return (labs, vols, loo_vols)
+
+    def _pre_for_vols(self, *args):
+
+        labs = []
+        vols = []
+        loo_vols = []
+
+        if self._twt == 'year':
+            lab_cond = 1
+
+        elif self._twt == 'month':
+            lab_cond = 2
+
+        elif self._twt == 'range':
+            lab_cond = 3
+
+        idxs_rng = np.arange(self._mwi)
+
+        if self._mp_pool is not None:
+            mp_cond = True
+
+            mp_idxs = ret_mp_idxs(self._mwi, self._n_cpus)
+
+            part_ftn = partial(
+                AppearDisappearPlot._get_vols,
+                args=(mp_cond, lab_cond, self._ans_dims, *args))
+
+            mwi_gen = (
+                idxs_rng[mp_idxs[i]:mp_idxs[i + 1]]
+
+                for i in range(self._n_cpus))
+
+            # use of map is necessary to keep order
+            ress = self._mp_pool.map(part_ftn, mwi_gen)
+
+            for res in ress:
+                labs.append(res[0])
+                vols.append(res[1])
+                loo_vols.append(res[2])
+
+            labs = np.concatenate(labs)
+            vols = np.concatenate(vols)
+            loo_vols = np.concatenate(loo_vols)
+
+        else:
+            mp_cond = False
+
+            dts_arr, = args
+
+            (labs, vols, loo_vols) = AppearDisappearPlot._get_vols(
+                idxs_rng,
+                (mp_cond,
+                 lab_cond,
+                 self._ans_dims,
+                 dts_arr,
+                 self._data_arr))
+
         return (labs, vols, loo_vols)
 
     def _plot_vols(self):
@@ -586,7 +657,15 @@ class AppearDisappearPlot:
 
         assert self._vdl
 
-        ulabs, uvols, uloo_vols = self._get_vols(self._rdts)
+        if self._ans_dims >= 5:
+            self._mp_pool = Pool(self._n_cpus)
+
+        if self._mp_pool is not None:
+            ulabs, uvols, uloo_vols = self._pre_for_vols(
+                self._h5_path, '/dts_vars/_rdts', 'in_data/_data_arr')
+
+        else:
+            ulabs, uvols, uloo_vols = self._pre_for_vols(self._rdts)
 
         plt_xs = np.arange(len(ulabs))
 
@@ -611,7 +690,13 @@ class AppearDisappearPlot:
             zorder=10)
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-            plabs, pvols, ploo_vols = self._get_vols(self._rpdts)
+
+            if self._mp_pool is not None:
+                *_, pvols, ploo_vols = self._pre_for_vols(
+                    self._h5_path, '/dts_vars/_rpdts', 'in_data/_data_arr')
+
+            else:
+                *_, pvols, ploo_vols = self._pre_for_vols(self._rpdts)
 
             plt.scatter(
                 ploo_vols[:, 0],
@@ -630,6 +715,11 @@ class AppearDisappearPlot:
                 label='peeled',
                 color='C1',
                 zorder=6)
+
+        if self._mp_pool is not None:
+            self._mp_pool.close()
+            self._mp_pool.join()
+            self._mp_pool = None
 
         ttl = f'''
         Moving window convex hull volumes
@@ -665,4 +755,3 @@ class AppearDisappearPlot:
 
         plt.close()
         return
-

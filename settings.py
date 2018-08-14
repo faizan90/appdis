@@ -102,7 +102,7 @@ class AppearDisappearSettings:
 
         assert isinstance(on, bool)
         assert isinstance(flush_flag, int)
-        assert (flush_flag >= 0) and (flush_flag <= 2)
+        assert 0 <= flush_flag <= 2
 
         self._hdf5_flag = on
         self._fh_flag = flush_flag

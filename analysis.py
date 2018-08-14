@@ -278,7 +278,8 @@ class AppearDisappearAnalysis:
                         pct = refr_pld_dts.shape[0]
                         self._rpdts['cts'][i] = pct
                         self._rpdts['dts'][i, :pct] = refr_pld_dts
-                        self._rpdts['idx'][i, :pct] = np.where(ris)[0][refr_pldis]
+                        self._rpdts['idx'][i, :pct] = (
+                            np.where(ris)[0][refr_pldis])
                         self._rpdts['lab'][i] = self._rdts['lab'][i]
 
                 if self._bs_flag:
@@ -687,7 +688,6 @@ class AppearDisappearAnalysis:
         rtmwrs = ris | tis
 
         n_refr = rmwr.shape[0]
-#         n_test = tmwr.shape[0]
 
         n_rbsis = np.unique(rmwr).shape[0] + np.unique(tmwr).shape[0]
 
@@ -705,12 +705,6 @@ class AppearDisappearAnalysis:
                 bs_set.append(cd_arr[ibsis, :].copy('c'))
 
             bs_set = np.concatenate(bs_set, axis=0)
-
-#             if self.verbose:
-#                 print('\t\tbsno:', _, bs_set.shape[0], (n_refr + n_test))
-
-#             assert bs_set.shape[0] == (n_refr + n_test)
-#             assert bs_set.shape[1] == self._ans_dims
 
             refr_bs = bs_set[:n_refr, :]
             test_bs = bs_set[n_refr:, :]
