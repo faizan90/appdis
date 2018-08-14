@@ -22,11 +22,25 @@ def main():
 
     in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e3)
+#     n_uvecs = int(1e2)
+#     n_cpus = 'auto'
+#     n_dims = 3
+#     ws = 5  # window size
+#     analysis_style = 'peel'
+#     time_win_type = 'year'
+#     n_ticks = 20
+#     cmap = 'jet'
+#
+#     peel_depth = 1  # greater than this are kept
+#     n_boots = 0
+#     hdf_flush_flag = 0
+#     vol_data_lev = 1
+#     loo_flag = False
+
+    n_uvecs = int(1e5)
     n_cpus = 'auto'
-    fig_size = (15, 14)
     n_dims = 6
-    ws = 10  # window size
+    ws = 20  # window size
     analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
@@ -36,6 +50,10 @@ def main():
     n_boots = 0
     hdf_flush_flag = 0
     vol_data_lev = 1
+    loo_flag = False
+
+    ecop_style = 'raw'
+    ecop_data_type = 'full'
 
     ann_flag = False
 #     ann_flag = True
@@ -90,11 +108,13 @@ def main():
     ad_plot = AppearDisappearPlot()
     ad_plot.set_hdf5(hdf5_path)
     ad_plot.set_outputs_directory(out_dir)
-    ad_plot.set_fig_props(fig_size, n_ticks, cmap)
+    ad_plot.set_fig_props(n_ticks, cmap)
     ad_plot.verify()
+    ad_plot.set_n_cpus(n_cpus)  # must call after verify to take effect
 
 #     ad_plot.plot_app_dis()
-    ad_plot.plot_volumes()
+#     ad_plot.plot_volumes(loo_flag)
+    ad_plot.plot_ecops(ecop_style, ecop_data_type)
     return
 
 

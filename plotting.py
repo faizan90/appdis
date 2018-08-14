@@ -3,6 +3,7 @@ Created on Aug 8, 2018
 
 @author: Faizan-Uni
 '''
+import psutil
 from functools import partial
 from pathlib import Path
 from multiprocessing import Pool
@@ -14,9 +15,15 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
 from scipy.spatial import ConvexHull
+from scipy.stats import rankdata
+from matplotlib.ticker import MaxNLocator
+
+from depth_funcs import depth_ftn_mp as dftn
 
 from .misc import ret_mp_idxs
 from .analysis import AppearDisappearAnalysis
+from .settings import AppearDisappearSettings
+from .normcop_cyftns import get_corrcoeff, get_asymms_sample
 
 plt.ioff()
 
@@ -34,8 +41,10 @@ class AppearDisappearPlot:
 
         self.var_labs_list = adan.var_labs_list
 
+        adso = AppearDisappearSettings()
+        self._poss_ans_stls = adso._poss_ans_stls
+
         self.dont_read_vars = (
-            '_uvecs',
             '_out_dir',  #  it is important to ignore this
             '_dn_flg',
             '_upld_bs_flg',
@@ -44,6 +53,9 @@ class AppearDisappearPlot:
             '_upld_pld_bs_flg')
 
         self._mp_pool = None
+        self._n_cpus = None
+
+        self.loo_flag = False
 
         self._h5_path_set_flag = False
         self._out_dir_set_flag = False
@@ -84,19 +96,13 @@ class AppearDisappearPlot:
         self._out_dir_set_flag = True
         return
 
-    def set_fig_props(self, fig_size, n_ticks, cmap):
-
-        assert isinstance(fig_size, (tuple, list))
-        assert len(fig_size) == 2
-        assert (fig_size[0] > 0) and np.isfinite(fig_size[0])
-        assert (fig_size[1] > 0) and np.isfinite(fig_size[1])
+    def set_fig_props(self, n_ticks, cmap):
 
         assert isinstance(n_ticks, int)
         assert (n_ticks > 0) and np.isfinite(n_ticks)
 
         assert isinstance(cmap, (str, Colormap))
 
-        self._fgs = fig_size
         self._n_ticks = n_ticks
 
         if isinstance(cmap, str):
@@ -114,15 +120,29 @@ class AppearDisappearPlot:
         assert self._h5_path_set_flag
         assert self._out_dir_set_flag
 
+        self._bef_plot()
+
         self._in_vrfd_flag = True
+        return
+
+    def set_n_cpus(self, n_cpus='auto'):
+
+        # must call after verify to take effect
+
+        assert self._in_vrfd_flag
+
+        if n_cpus != 'auto':
+            assert (n_cpus > 0) and np.isfinite(n_cpus)
+
+        else:
+            n_cpus = max(1, psutil.cpu_count() - 1)
+
+        self._n_cpus = n_cpus
         return
 
     def _bef_plot(self):
 
-        assert self._in_vrfd_flag
-
         if not self._fig_props_set_flag:
-            self._fgs = (5, 5)
             self._nticks = 15
             self._cmap = plt.get_cmap('jet')
 
@@ -205,7 +225,7 @@ class AppearDisappearPlot:
 
         assert self._bef_plot_vars_set
 
-        plt.figure(figsize=self._fgs)
+        plt.figure(figsize=(13, 13))
         plt.axes().set_aspect('equal', 'box')
 
         if self._twt == 'year':
@@ -294,7 +314,7 @@ class AppearDisappearPlot:
                             rats_bs_ul_arr * 100,
                             rats_bs_ll_arr * 100)
 
-        plt.figure(figsize=self._fgs)
+        plt.figure(figsize=(17, 17))
         pc = (9, 9)
 
         ax_ul = plt.subplot2grid(pc, (0, 0), rowspan=4, colspan=4)
@@ -315,8 +335,10 @@ class AppearDisappearPlot:
         cvmin = -1
         cvmax = +1
 
-        rvmin = min(rats_arr.min(), rats_bs_ul_arr.min(), rats_bs_ll_arr.min())
-        rvmax = max(rats_arr.max(), rats_bs_ul_arr.max(), rats_bs_ll_arr.max())
+        rvmin = min(
+            rats_arr.min(), rats_bs_ul_arr.min(), rats_bs_ll_arr.min())
+        rvmax = max(
+            rats_arr.max(), rats_bs_ul_arr.max(), rats_bs_ll_arr.max())
 
         if not np.isfinite(rvmin):
             rvmin = 0
@@ -406,10 +428,9 @@ class AppearDisappearPlot:
         Starting, ending {xylab}(s): {labs[0]}, {labs[-1]}
         '''
 
-        plt.suptitle(ttl, x=0, y=1, ha='left')  # , fontdict={'ha': 'right'}, loc='right'
+        plt.suptitle(ttl, x=0, y=1, ha='left')
 #
         plt.tight_layout(rect=(0, 0, 0.85, 0.85))  #
-#         plt.subplots_adjust()
 
         n_tick_vals = x.shape[0] - 1
         inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))
@@ -500,9 +521,6 @@ class AppearDisappearPlot:
 
     def plot_app_dis(self):
 
-        if not self._bef_plot_vars_set:
-            self._bef_plot()
-
         self._plot_app_dis(self._upld, 'upld_plot.png', 'Both unpeeled')
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
@@ -524,10 +542,13 @@ class AppearDisappearPlot:
             self._plot_bs()
         return
 
-    def plot_volumes(self):
+    def plot_volumes(self, loo_flag=False):
 
-        if not self._bef_plot_vars_set:
-            self._bef_plot()
+        assert isinstance(loo_flag, bool)
+
+        self.loo_flag = loo_flag
+
+        assert self._in_vrfd_flag
 
         self._plot_vols()
         return
@@ -535,14 +556,16 @@ class AppearDisappearPlot:
     @staticmethod
     def _get_vols(step_idxs, args):
 
+        mp_cond, lab_cond, dims, loo_flag = args[:4]
+
         labs = []
         vols = []
         loo_vols = []
-
-        mp_cond, lab_cond, dims = args[:3]
+        n_chull_cts = []
+        chull_idxs = []
 
         if mp_cond:
-            path, dts_path, data_path = args[3:]
+            path, dts_path, data_path = args[4:]
 
             h5_hdl = h5py.File(path, driver='core', mode='r')
 
@@ -552,7 +575,7 @@ class AppearDisappearPlot:
             h5_hdl.close()
 
         else:
-            dts_arr, data_arr = args[3:]
+            dts_arr, data_arr = args[4:]
 
         for i in step_idxs:
             ct = dts_arr['cts'][i]
@@ -573,31 +596,41 @@ class AppearDisappearPlot:
 
             labs.append(lab)
 
-            hull_pt_idxs = dts == 1
-            hull_pts = data_arr[idxs[hull_pt_idxs], :dims]
+            bd_idxs = idxs[dts == 1]
+
+            chull_idxs.append(bd_idxs)
+
+            hull_pts = data_arr[bd_idxs, :dims]
+            n_chull_pts = bd_idxs.shape[0]
 
             vols.append(ConvexHull(hull_pts).volume)
+            n_chull_cts.append(n_chull_pts)
 
-            # remove a pt and cmpt volume
-            n_hull_pts = int(hull_pt_idxs.sum())
-            loo_idxs = np.ones(n_hull_pts, dtype=bool)
-            for j in range(n_hull_pts):
-                loo_idxs[j] = False
+            if loo_flag:
+                # remove a pt and cmpt volume
+                loo_idxs = np.ones(n_chull_pts, dtype=bool)
+                for j in range(n_chull_pts):
+                    loo_idxs[j] = False
 
-                loo_vols.append([i, ConvexHull(hull_pts[loo_idxs]).volume])
+                    loo_vols.append(
+                        [i, ConvexHull(hull_pts[loo_idxs]).volume])
 
-                loo_idxs[j] = True
+                    loo_idxs[j] = True
 
         loo_vols = np.array(loo_vols)
         vols = np.array(vols)
         labs = np.array(labs)
-        return (labs, vols, loo_vols)
+        n_chull_cts = np.array(n_chull_cts)
+        chull_idxs = np.unique(np.array(np.concatenate(chull_idxs)))
+        return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
 
-    def _pre_for_vols(self, *args):
+    def _prep_for_vols(self, *args):
 
         labs = []
         vols = []
         loo_vols = []
+        n_chull_cts = []
+        chull_idxs = []
 
         if self._twt == 'year':
             lab_cond = 1
@@ -617,7 +650,12 @@ class AppearDisappearPlot:
 
             part_ftn = partial(
                 AppearDisappearPlot._get_vols,
-                args=(mp_cond, lab_cond, self._ans_dims, *args))
+                args=(
+                    mp_cond,
+                    lab_cond,
+                    self._ans_dims,
+                    self.loo_flag,
+                    *args))
 
             mwi_gen = (
                 idxs_rng[mp_idxs[i]:mp_idxs[i + 1]]
@@ -631,25 +669,36 @@ class AppearDisappearPlot:
                 labs.append(res[0])
                 vols.append(res[1])
                 loo_vols.append(res[2])
+                n_chull_cts.append(res[3])
+                chull_idxs.append(res[4])
 
             labs = np.concatenate(labs)
             vols = np.concatenate(vols)
             loo_vols = np.concatenate(loo_vols)
+            n_chull_cts = np.concatenate(n_chull_cts)
+            chull_idxs = np.concatenate(chull_idxs)
+
+            chull_idxs = np.unique(chull_idxs)
 
         else:
             mp_cond = False
 
             dts_arr, = args
 
-            (labs, vols, loo_vols) = AppearDisappearPlot._get_vols(
+            (labs,
+             vols,
+             loo_vols,
+             n_chull_cts,
+             chull_idxs) = AppearDisappearPlot._get_vols(
                 idxs_rng,
                 (mp_cond,
                  lab_cond,
                  self._ans_dims,
+                 self.loo_flag,
                  dts_arr,
                  self._data_arr))
 
-        return (labs, vols, loo_vols)
+        return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
 
     def _plot_vols(self):
 
@@ -657,28 +706,36 @@ class AppearDisappearPlot:
 
         assert self._vdl
 
-        if self._ans_dims >= 5:
+        if (self._n_cpus > 1) and (self._ans_dims >= 4):
+
             self._mp_pool = Pool(self._n_cpus)
 
         if self._mp_pool is not None:
-            ulabs, uvols, uloo_vols = self._pre_for_vols(
+            uvols_res = self._prep_for_vols(
                 self._h5_path, '/dts_vars/_rdts', 'in_data/_data_arr')
 
         else:
-            ulabs, uvols, uloo_vols = self._pre_for_vols(self._rdts)
+            uvols_res = self._prep_for_vols(self._rdts)
+
+        ulabs, uvols, uloo_vols, un_chull_cts, uchull_idxs = uvols_res
 
         plt_xs = np.arange(len(ulabs))
 
-        plt.figure(figsize=(20, 7))
+        vols_fig = plt.figure(figsize=(20, 7))
+        npts_fig = plt.figure(figsize=(20, 7))
+        bd_pt_fig = plt.figure(figsize=(40, 4))
 
-        plt.scatter(
-            uloo_vols[:, 0],
-            uloo_vols[:, 1],
-            marker='o',
-            alpha=0.2,
-            label='unpeeled leave-one',
-            color='C0',
-            zorder=9)
+        plt.figure(vols_fig.number)
+
+        if self.loo_flag:
+            plt.scatter(
+                uloo_vols[:, 0],
+                uloo_vols[:, 1],
+                marker='o',
+                alpha=0.2,
+                label='unpeeled leave-one',
+                color='C0',
+                zorder=9)
 
         plt.plot(
             plt_xs,
@@ -689,23 +746,50 @@ class AppearDisappearPlot:
             color='C0',
             zorder=10)
 
+        plt.figure(npts_fig.number)
+        plt.plot(
+            plt_xs,
+            un_chull_cts,
+            marker='o',
+            alpha=0.6,
+            label='unpeeled',
+            color='C0',
+            zorder=10)
+
+        plt.figure(bd_pt_fig.number)
+        ubd_pt_arr = np.zeros(self._n_data_pts, dtype=np.int16)
+        ubd_pt_arr[uchull_idxs] = 1
+        plt.plot(
+            self._t_idx,
+            ubd_pt_arr,
+            alpha=0.6,
+            label='unpeeled',
+            color='C0',
+            zorder=10,
+            linewidth=1)
+
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
             if self._mp_pool is not None:
-                *_, pvols, ploo_vols = self._pre_for_vols(
+                pvols_res = self._prep_for_vols(
                     self._h5_path, '/dts_vars/_rpdts', 'in_data/_data_arr')
 
             else:
-                *_, pvols, ploo_vols = self._pre_for_vols(self._rpdts)
+                pvols_res = self._prep_for_vols(self._rpdts)
 
-            plt.scatter(
-                ploo_vols[:, 0],
-                ploo_vols[:, 1],
-                marker='o',
-                alpha=0.2,
-                label='peeled leave-one',
-                color='C1',
-                zorder=5)
+            _, pvols, ploo_vols, pn_chull_cts, pchull_idxs = pvols_res
+
+            plt.figure(vols_fig.number)
+
+            if self.loo_flag:
+                plt.scatter(
+                    ploo_vols[:, 0],
+                    ploo_vols[:, 1],
+                    marker='o',
+                    alpha=0.2,
+                    label='peeled leave-one',
+                    color='C1',
+                    zorder=5)
 
             plt.plot(
                 plt_xs,
@@ -716,13 +800,35 @@ class AppearDisappearPlot:
                 color='C1',
                 zorder=6)
 
+            plt.figure(npts_fig.number)
+            plt.plot(
+                plt_xs,
+                pn_chull_cts,
+                marker='o',
+                alpha=0.6,
+                label='peeled',
+                color='C1',
+                zorder=6)
+
+            plt.figure(bd_pt_fig.number)
+            pbd_pt_arr = np.zeros(self._n_data_pts, dtype=np.int16)
+            pbd_pt_arr[pchull_idxs] = 1
+            plt.plot(
+                self._t_idx,
+                pbd_pt_arr,
+                alpha=0.6,
+                label='peeled',
+                color='C1',
+                zorder=6,
+                linewidth=1)
+
         if self._mp_pool is not None:
             self._mp_pool.close()
             self._mp_pool.join()
             self._mp_pool = None
 
         ttl = f'''
-        Moving window convex hull volumes
+        %s
 
         Analysis style: {self._ans_stl}
         Window type: {self._twt}
@@ -733,9 +839,12 @@ class AppearDisappearPlot:
         Starting, ending {self._twt}(s): {ulabs[0]}, {ulabs[-1]}
         '''
 
-        plt.title(ttl, fontdict={'ha': 'right'}, loc='right')
+        # chull volumes
+        plt.figure(vols_fig.number)
+        ttl_lab = 'Moving window convex hull volumes'
+        plt.title(ttl % ttl_lab, fontdict={'ha': 'right'}, loc='right')
 
-        plt.xlabel(f'Step ({self._twt}(s))')
+        plt.xlabel(f'Window ({self._twt}(s))')
         plt.ylabel(f'{self._ans_dims}D Volume')
 
         n_tick_vals = self._mwi
@@ -752,6 +861,244 @@ class AppearDisappearPlot:
         out_fig_name = 'chull_volumes.png'
 
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
+        plt.close()
+
+        # chull point count
+        plt.figure(npts_fig.number)
+        ttl_lab = 'Moving window convex hull point count'
+
+        plt.title(ttl % ttl_lab, fontdict={'ha': 'right'}, loc='right')
+
+        plt.xlabel(f'Window ({self._twt}(s))')
+        plt.ylabel(f'N C-hull points (-)')
+
+        n_tick_vals = self._mwi
+        inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))
+
+        ticks = plt_xs[::inc]
+        tick_labs = ulabs[::inc][:plt_xs.shape[0]]
+
+        plt.xticks(ticks, tick_labs, rotation=90)
+
+        npts_fig.gca().yaxis.set_major_locator(MaxNLocator(integer=True))
+
+        plt.grid()
+        plt.legend()
+
+        out_fig_name = 'chull_point_counts.png'
+
+        plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
+        plt.close()
+
+        # time series of bd points
+        plt.figure(bd_pt_fig.number)
+        ttl_lab = 'Boundary points time series'
+
+        plt.title(ttl % ttl_lab, fontdict={'ha': 'right'}, loc='right')
+
+        plt.xlabel('Time (steps)')
+
+        plt.xticks(rotation=90)
+
+        plt.yticks([0, 1], ['Not boundary', 'Boundary'])
+
+        npts_fig.gca().yaxis.set_major_locator(
+            MaxNLocator(self._n_ticks, integer=True))
+
+        plt.grid()
+        plt.legend(framealpha=0.5).set_zorder(11)
+
+        out_fig_name = 'boundary_points_time_series.png'
+
+        plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
+        plt.close()
+        return
+
+    def _get_win_bd_idxs(self, dts_arr):
+
+        chull_idxs = []
+        idxs_rng = np.arange(self._mwi)
+
+        for i in idxs_rng:
+            ct = dts_arr['cts'][i]
+
+            dts = dts_arr['dts'][i, :ct]
+            idxs = dts_arr['idx'][i, :ct]
+
+            bd_idxs = idxs[dts == 1]
+
+            chull_idxs.append(bd_idxs)
+
+        chull_idxs = np.unique(np.array(np.concatenate(chull_idxs)))
+        chull_time_idxs = self._t_idx[chull_idxs]
+
+        return (chull_idxs, chull_time_idxs)
+
+    def _get_full_bd_idxs(self, style):
+
+        cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
+
+        refr_refr_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
+
+        upld_chull_idxs = np.where(refr_refr_dts == 1)[0]
+        upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
+
+        pld_chull_idxs = None
+        pld_chull_time_idxs = None
+
+        if (style == 'peel') or (style == 'alt_peel'):
+            refr_pld = cd_arr[refr_refr_dts > self._pl_dth].copy('c')
+
+            refr_refr_pld_dts = dftn(
+                refr_pld, refr_pld, self._uvecs, self._n_cpus)
+
+            pld_chull_idxs = np.where(refr_refr_pld_dts == 1)[0]
+            pld_chull_time_idxs = self._t_idx[pld_chull_idxs]
+
+        return (
+            upld_chull_idxs,
+            upld_chull_time_idxs,
+            pld_chull_idxs,
+            pld_chull_time_idxs)
+
+    def get_boundary_point_idxs(self, style, data_type):
+
+        assert self._in_vrfd_flag
+
+        assert isinstance(style, str)
+        assert style in self._poss_ans_stls
+
+        poss_data_types = ['window', 'full']
+
+        assert isinstance(data_type, str)
+        assert data_type in poss_data_types
+
+        if data_type == 'window':
+            if style == 'raw':
+                dts_arr = self._rdts
+
+            elif (style == 'peel') or (style == 'alt_peel'):
+
+                assert (
+                    (self._ans_stl == 'peel') or
+                    (self._ans_stl == 'alt_peel'))
+
+                dts_arr = self._rpdts
+
+            else:
+                raise NotImplementedError
+
+            res = self._get_win_bd_idxs(dts_arr)
+
+        elif data_type == 'full':
+            res = self._get_full_bd_idxs(style)
+
+        else:
+            raise NotImplementedError
+
+        return res
+
+    def plot_ecops(self, style, data_type):
+
+        assert self._in_vrfd_flag
+
+        assert isinstance(style, str)
+        assert style in self._poss_ans_stls
+
+        poss_data_types = ['window', 'full']
+
+        assert isinstance(data_type, str)
+        assert data_type in poss_data_types
+
+        assert self._in_vrfd_flag
+
+        probs_arr = np.empty(
+            (self._n_data_pts, self._ans_dims), dtype=np.float64, order='c')
+
+        for i in range(self._ans_dims):
+            probs_arr[:, i] = (
+                rankdata(self._data_arr[:, i]) / (self._n_data_pts + 1))
+
+        plt.figure(figsize=(10, 10))
+
+        ttl = f'''
+        PCA weights empirical copulas
+
+        Analysis style: {style}
+        Window type: {self._twt}
+        Data Type: {data_type}
+        {self._ans_dims} dimensions analyzed
+        {self._n_uvecs:1.0E} unit vectors
+        Peeling depth: {self._pl_dth}
+        Spearman correlation: %0.4f
+        Asymmetry 1: %1.0E
+        Asymmetry 2: %1.0E
+        Total steps: %d
+        '''
+
+        emp_cop_out_dir = self._out_dir / 'empirical_copulas'
+        emp_cop_out_dir.mkdir(exist_ok=True)
+
+        for i in range(self._ans_dims):
+            probs_arr_i = probs_arr[:, i]
+            for j in range(self._ans_dims):
+                if i >= j:
+                    continue
+
+                probs_arr_j = probs_arr[:, j]
+
+                bool_idxs = np.zeros(self._n_data_pts, dtype=bool)
+
+                chull_idxs = self.get_boundary_point_idxs(
+                    style, data_type)[0]
+
+                bool_idxs[chull_idxs] = True
+
+                correl = get_corrcoeff(probs_arr_i, probs_arr_j)
+
+                asymms = get_asymms_sample(probs_arr_i, probs_arr_j)
+
+                plt.scatter(
+                    probs_arr_i[~bool_idxs],
+                    probs_arr_j[~bool_idxs],
+                    marker='o',
+                    alpha=0.1,
+                    label='non-bd pt',
+                    color='C0')
+
+                plt.scatter(
+                    probs_arr_i[bool_idxs],
+                    probs_arr_j[bool_idxs],
+                    marker='o',
+                    alpha=0.3,
+                    label='bd pt',
+                    color='C1')
+
+                plt.xlabel(f'Dimension: {i}')
+                plt.ylabel(f'Dimension: {j}')
+                plt.legend(framealpha=0.5)
+
+                cttl = ttl % (
+                    correl,
+                    asymms['asymm_1'],
+                    asymms['asymm_2'],
+                    self._n_data_pts)
+
+                plt.title(
+                    cttl,
+                    fontdict={'ha': 'right'},
+                    loc='right')
+
+                plt.grid()
+
+                out_fig_name = (
+                    f'{data_type}_{style}_pca_wts_emp_cop_{i}_{j}.png')
+
+                plt.savefig(
+                    str(emp_cop_out_dir / out_fig_name), bbox_inches='tight')
+
+                plt.clf()
 
         plt.close()
+
         return
