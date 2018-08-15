@@ -188,7 +188,7 @@ class AppearDisappearPlot:
         assert data_type in poss_data_types
 
         if data_type == 'window':
-            if style == 'raw':
+            if style == 'un_peel':
                 dts_arr = self._rdts
 
             elif (style == 'peel') or (style == 'alt_peel'):
@@ -245,8 +245,8 @@ class AppearDisappearPlot:
         {self._n_uvecs:1.0E} unit vectors
         Peeling depth: {self._pl_dth}
         Spearman correlation: %0.4f
-        Asymmetry 1: %2.0E
-        Asymmetry 2: %2.0E
+        Asymmetry 1: %1.3E
+        Asymmetry 2: %1.3E
         Total steps: %d
         %d chull points
         '''
@@ -275,7 +275,7 @@ class AppearDisappearPlot:
                     bd_i = probs_i[_idxs[2]]
                     bd_j = probs_j[_idxs[2]]
 
-                elif style == 'raw':
+                elif style == 'un_peel':
 
                     probs_i = probs_arr_i
                     probs_j = probs_arr_j

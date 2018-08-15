@@ -7,18 +7,25 @@ Created on Aug 8, 2018
 import psutil
 from pathlib import Path
 
-import numpy as np
-
 
 class AppearDisappearSettings:
 
+    '''Set parameters for the AppearDisappearAnalysis class.'''
+
     def __init__(self, verbose=True):
+
+        '''
+        Parameters
+        ----------
+        verbose : bool
+            Print activity messages if True.
+        '''
 
         assert isinstance(verbose, bool)
 
         self.verbose = verbose
 
-        self._poss_ans_stls = ['raw', 'peel', 'alt_peel']
+        self._poss_ans_stls = ['un_peel', 'peel', 'alt_peel']
         self._poss_time_wins = ['month', 'year']  # , 'range'
 
         self._bs_flag = False
@@ -34,27 +41,68 @@ class AppearDisappearSettings:
 
     def set_analysis_parameters(
             self,
-            window_size,
             time_window_type,
+            window_size,
             analysis_style,
             analyze_dims,
             peel_depth=0,
             n_cpus='auto'):
 
-        assert (window_size > 0) and np.isfinite(window_size)
+        '''Set the basic parameters for the appearing-disppearing analysis.
 
-        assert isinstance(time_window_type, str)
-        assert time_window_type in self._poss_time_wins
+        Parameters
+        ----------
+        time_window_type : str
+            The type of window to use while moving along in time.
+            If 'year' then windows_size years events are taken per window.
+            If 'month' then windows_size month events are taken per window.
+            The last two options allow us to get around the situations
+            of leap year and the number of days in each month being unqual.
+        window_size : int
+            Depending on time_window_type, take window_size events per
+            window.
+        analysis_style : str
+            Three styles of analysis are allowed.
+            If 'un_peel' then appearing-disppearing is taken without any
+            modifications. This type of data is called unpeeled.
+            If 'peel' then take windows that consists of points with
+            depths greater than peel_depth only. These windows are called
+            peeled.
+            If 'alt_peel' then use peeled windows against unpeeled windows
+            and vice versa.
+            Setting a successive option computes the values for the all
+            the last ones as well. e.g. 'alt_peel' will compute values for
+            'un_peel' and 'peel' cases as well.
+        peel_depth : int
+            Points with depths greater than peel_depth are removed to create
+            the peeled window dataset.
+        n_cpus : str, int
+            Number of threads used by the depth function.
+            If 'auto' then use one less than the maximum available threads.
+        '''
 
-        assert isinstance(analysis_style, str)
-        assert analysis_style in self._poss_ans_stls
+        assert isinstance(window_size, int), 'window_size not an integer!'
+        assert isinstance(analyze_dims, int), 'analyze_dims not an integer!'
+        assert isinstance(peel_depth, int), 'peel_depth not an integer!'
 
-        assert (analyze_dims > 1) and np.isfinite(analyze_dims)
+        assert window_size > 0, 'window_size should be greater than zero!'
+        assert analyze_dims > 0, 'analyze_dims should be greater than zero!'
+        assert peel_depth >= 0, (
+            'peel_depth should be greater than or equal to zero!')
 
-        assert (peel_depth >= 0) and np.isfinite(peel_depth)
+        assert isinstance(time_window_type, str), (
+            'time_window_type not a string!')
+        assert time_window_type in self._poss_time_wins, (
+            f'time_window_type can only be one of {self._poss_time_wins}!')
+
+        assert isinstance(analysis_style, str), (
+            'analysis_style not a string!')
+        assert analysis_style in self._poss_ans_stls, (
+            f'analysis_style can only be one of {self._poss_ans_stls}!')
 
         if n_cpus != 'auto':
-            assert (n_cpus > 0) and np.isfinite(n_cpus)
+            assert isinstance(n_cpus, int), 'n_cpus not an integer!'
+            assert n_cpus > 0
 
         else:
             n_cpus = max(1, psutil.cpu_count() - 1)
@@ -69,22 +117,26 @@ class AppearDisappearSettings:
         self._ans_prms_set_flag = True
         return
 
-    def set_boot_strap_on_off(self, n_boots=0):
-
-        assert isinstance(n_boots, int)
-        assert (n_boots >= 0) and np.isfinite(n_boots)
-
-        self._bs_flag = bool(n_boots)
-        self._n_bs = n_boots
-        return
-
     def set_outputs_directory(self, out_dir, exist_ok=True):
 
-        assert isinstance(out_dir, (str, Path))
+        '''
+        Set the outputs directory.
+
+        Parameters
+        ----------
+        out_dir : str, pathlib.Path
+            Path to the outputs directory
+        exist_ok : bool
+            Overwrite if output exists
+        '''
+
+        assert isinstance(out_dir, (str, Path)), (
+            'out_dir not a string or pathlib.Path object!')
 
         out_dir = Path(out_dir).resolve()
 
-        assert out_dir.parents[0].exists()
+        assert out_dir.parents[0].exists(), (
+            'Parent directory of out_dir does not exist!')
 
         out_dir.mkdir(exist_ok=exist_ok)
 
@@ -93,16 +145,46 @@ class AppearDisappearSettings:
         self._out_dir_set_flag = True
         return
 
+    def set_boot_strap_on_off(self, n_boots=0):
+
+        '''Allow for bootstrapping in the analysis.
+
+        Parameters
+        ----------
+        n_boots : int
+            Number of boostrap samples to take.
+        '''
+
+        assert isinstance(n_boots, int), 'n_boots not an integer!'
+        assert n_boots >= 0, 'n_boots cannot be less than zero!'
+
+        self._bs_flag = bool(n_boots)
+        self._n_bs = n_boots
+        return
+
     def save_outputs_to_hdf5_on_off(self, on, flush_flag):
 
-        # flush_flag:
-        #    0: flush arrays to hdfs at the end of analysis
-        #    1: flush after every iteration of the first for loop
-        #    2: flush after every iteration of the second for loop
+        '''Allow for saving of outputs to an HDF5 file.
 
-        assert isinstance(on, bool)
-        assert isinstance(flush_flag, int)
-        assert 0 <= flush_flag <= 2
+        Parameters
+        ----------
+        on : bool
+            If True then save analysis outputs to a file 'app_dis_ds.hdf5'
+            in the outputs directory.
+        flush_flag : int
+            At which step to flush outputs to the hdf5 file.
+            If 0 then flush at the end of the analysis.
+            If 1 then flush after being done with a reference window.
+            If 2 then flush after being done with every test window.
+            This comes in handy when doing analysis with relatively
+            long time series and dimensions. Broken analyses can be
+            resumed from the last flush state.
+        '''
+
+        assert isinstance(on, bool), 'on can only be a bool!'
+        assert isinstance(flush_flag, int), 'flush_flag not an integer!'
+        assert 0 <= flush_flag <= 2, (
+            'flush_flag can only be between zero and two!')
 
         self._hdf5_flag = on
         self._fh_flag = flush_flag
@@ -110,24 +192,36 @@ class AppearDisappearSettings:
 
     def save_volume_data_level(self, level):
 
+        '''Not sure about this one.'''
+
         # level:
         #    0: save no volume data
         #    1: save unpeeled and peeled volume data
         #    2: save bootstrapping volume data as well
 
-        assert isinstance(level, int)
-        assert 0 <= level <= 2
+        assert isinstance(level, int), 'level not an integer!'
+        assert 0 <= level <= 1, 'level can only be between zero and one!'
 
         self._vdl = level
         return
 
     def verify(self):
 
-        assert self._ans_prms_set_flag
-        assert self._out_dir_set_flag
+        '''Verify that all the inputs are correct.
+
+        NOTE:
+        -----
+            These are just some additional checks. This function should
+            always be called after all the parameters are set and ready.
+        '''
+
+        assert self._ans_prms_set_flag, 'Call set_analysis_parameters first!'
+        assert self._out_dir_set_flag, 'Call set_outputs_directory first!'
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-            assert self._pl_dth > 0
+            assert self._pl_dth > 0, (
+                f'For analysis_style: {self._ans_style}, '
+                'peel_depth should be greater than zero!')
 
         self._in_vrfd_flag = True
         return

@@ -227,7 +227,7 @@ class AppearDisappearAnalysis:
 
         cd_arr = self._data_arr[:, :self._ans_dims]
 
-        # computations for _ans_stl == 'raw' are kept here. The rest are
+        # computations for _ans_stl == 'un_peel' are kept here. The rest are
         # passed to other functions to avoid a long loop and too much white
         # space
 

@@ -52,7 +52,7 @@ def main():
     vol_data_lev = 1
     loo_flag = False
 
-    ecop_style = 'raw'
+    ecop_style = 'un_peel'
     ecop_data_type = 'full'
 
     ann_flag = False
@@ -81,8 +81,8 @@ def main():
 
         ad_sett = AppearDisappearSettings()
         ad_sett.set_analysis_parameters(
-            ws,
             time_win_type,
+            ws,
             analysis_style,
             n_dims,
             peel_depth,
