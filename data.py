@@ -14,7 +14,9 @@ from depth_funcs import gen_usph_vecs_norm_dist_mp as gen_usph_vecs
 
 class AppearDisappearData:
 
-    '''Set the data for the AppearDisappearAnalysis class.'''
+    '''Set the data for the AppearDisappearAnalysis class.
+    This is a baseclass.
+    '''
 
     def __init__(
             self, verbose=True, copy_input=False, mutability=False):
@@ -128,7 +130,7 @@ class AppearDisappearData:
         assert np.all(_dfs > 0)
 
         if self._data_arr_set_flag:
-            assert time_index.shape[0] == self._n_data_pts(
+            assert time_index.shape[0] == self._n_data_pts, (
                 'Unequal lengths of data_arr and time_index!')
 
         if self.copy_input:
@@ -274,3 +276,5 @@ class AppearDisappearData:
         assert self._uvecs_set_flag, (
             'Call set_unit_vectors or generate_and_set_unit_vectors first!')
         return self._uvecs
+
+    __verify = verify

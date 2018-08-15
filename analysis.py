@@ -11,24 +11,49 @@ from monthdelta import monthmod
 
 from depth_funcs import depth_ftn_mp as dftn
 
-from .data import AppearDisappearData
-from .settings import AppearDisappearSettings
+from .data import AppearDisappearData as ADDA
+from .settings import AppearDisappearSettings as ADSS
 
 
-class AppearDisappearAnalysis:
+class AppearDisappearAnalysis(ADDA, ADSS):
 
-    def __init__(self, verbose=True):
+    '''Perform the appearing and disappearing events analysis
 
-        # we could inherit but this seems to be more flexible
+    Using Tukey's depth function and dividing the time series data into
+    windows (N events per window), this class computes ratios of events
+    that have appeared or disappeared for any two given event windows.
 
-        assert isinstance(verbose, bool)
+    The time window can be a set of consecutive years or months. Events in
+    test window are checked for containment inside the reference window.
+    Points that have a depth of zero in the reference window are considered
+    disappearing if the reference window is ahead of the test window in time
+    and appearing if vice versa.
 
-        self.verbose = verbose
+    For example, consider a dataset of 200 time steps (rows) and 2
+    stations (columns). First 100 time steps are set as reference and the
+    others as the test window. Using the Tukey's (or any) depth function,
+    depth for each point of the test window in the reference window is
+    computed. Tukey's depth funtion returns a zero for any point that is
+    outside the convex hull (created by the points in the reference
+    dataset). It returns a one if a point lies on the boundary of the convex
+    hull. Let's say 10 points' depth is zero. So for this specific case,
+    we have 10 appearing situations which is ten percent of the test
+    window. This is the main output of this analysis. Based on the
+    specified parameters, other outputs are also computed.
+
+    See the entire documentation for more information.
+    '''
+
+    def __init__(self, verbose=True, copy_input=False, mutability=False):
+
+        ADDA.__init__(self, verbose, copy_input, mutability)
+        ADSS.__init__(self, verbose)
 
         self._h5_hdl = None
         self._h5_path = None
 
-        # all labels must have a leading underscore
+        # Variables below are written to HDF5 file.
+        # all labels must have a leading underscore.
         self._data_vars_labs = (
             '_data_arr',
             '_t_idx',
@@ -107,121 +132,54 @@ class AppearDisappearAnalysis:
             self._boot_vars_labs
             )
 
-        self._data_set_flag = False
-        self._sett_set_flag = False
         self._rsm_hdf5_flag = False
 
         self._in_vrfd_flag = False
         self._mw_rng_cmptd_flag = False
         return
 
-    def set_data(self, appear_disappear_data_obj):
-
-        assert isinstance(appear_disappear_data_obj, AppearDisappearData)
-        assert appear_disappear_data_obj._in_vrfd_flag
-
-        addo = appear_disappear_data_obj
-
-        for v in self._data_vars_labs:
-            setattr(self, v, getattr(addo, v))
-
-        self._data_set_flag = True
-        return
-
-    def set_settings(self, appear_disappear_settings_obj):
-
-        assert isinstance(
-            appear_disappear_settings_obj, AppearDisappearSettings)
-        assert appear_disappear_settings_obj._in_vrfd_flag
-
-        adso = appear_disappear_settings_obj
-
-        for v in self._sett_vars_labs:
-            setattr(self, v, getattr(adso, v))
-
-        self._sett_set_flag = True
-        return
-
-    def resume_from_hdf5(self, path):
-
-        assert isinstance(path, (str, Path))
-
-        path = Path(path).resolve()
-
-        assert path.exists()
-        assert path.is_file()
-
-        self._h5_hdl = h5py.File(str(path), driver='core', mode='a')
-
-        h5_dss_list = []
-
-        for name in self.h5_ds_names:
-            if name not in self._h5_hdl:
-                continue
-
-            h5_dss_list.append(self._h5_hdl[name])
-
-        assert h5_dss_list
-
-        n_dss = len(h5_dss_list)
-
-        for i in range(n_dss):
-            dss = h5_dss_list[i]
-            var_labs = self.var_labs_list[i]
-
-            for lab in var_labs:
-                if lab in dss:
-                    setattr(self, lab, dss[lab][...])
-
-                elif lab in dss.attrs:
-                    setattr(self, lab, dss.attrs[lab])
-
-                elif lab in var_labs:
-                    pass
-
-                else:
-                    raise KeyError(lab)
-
-        # conversions applied to some variables because hdf5 cant have them
-        # in the format that is used here
-        if (self._twt == 'month') or (self._twt == 'year'):
-
-            self._t_idx = pd.to_datetime(self._t_idx, unit='s')
-
-        self._out_dir = Path(self._out_dir)
-
-        self._rsm_hdf5_flag = True
-        self.verify()
-        return
-
     def verify(self):
 
+        '''Verify that all the inputs are correct.
+
+        NOTE:
+        -----
+            These are just some additional checks. This function should be
+            always called after all the inputs are set and ready.
+        '''
+
         if not self._rsm_hdf5_flag:
-            assert self._data_set_flag
-            assert self._sett_set_flag
+            ADDA._AppearDisappearData__verify(self)
+            ADSS._AppearDisappearSettings__verify(self)
 
             if self._t_idx_t == 'time':
-                assert (self._twt == 'month') or (self._twt == 'year')
+                assert (self._twt == 'month') or (self._twt == 'year'), (
+                    'Incompatible time_index and time_window_type!')
 
             elif self._t_idx_t == 'range':
-                assert self._twt == 'range'
-                assert self._pl_dth < self._ws
+                assert self._twt == 'range', (
+                    'Incompatible time_index and time_window_type!')
+                assert self._pl_dth < self._ws, (
+                    'peel_depth cannot be greater than window_size '
+                    'in this case!')
 
             else:
                 raise NotImplementedError
 
             # this doesn't help much
-            assert self._ws < self._n_data_pts
-            assert (self._ws + 1) < self._n_data_pts
+            assert (self._ws + 1) < self._n_data_pts, (
+                'window_size cannot be greater than the number of steps!')
 
         self._in_vrfd_flag = True
         return
 
     def cmpt_appear_disappear(self):
 
+        '''Perform the analysis after all the inputs are set and ready.'''
+
         self._bef_app_dis()
 
-        assert self._in_vrfd_flag
+        assert self._in_vrfd_flag, 'Call verify first!'
 
         pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
 
@@ -229,7 +187,7 @@ class AppearDisappearAnalysis:
 
         # computations for _ans_stl == 'un_peel' are kept here. The rest are
         # passed to other functions to avoid a long loop and too much white
-        # space
+        # space.
 
         for i in range(self._mwi):
 
@@ -293,6 +251,30 @@ class AppearDisappearAnalysis:
                     continue
 
                 if i == j:
+                    self._upld[i, i] = 0
+
+                    if pl_flg:
+                        self._pld[i, i] = 0
+
+                        if self._ans_stl == 'alt_peel':
+                            self._pld_upld[i, i] = 0
+                            self._upld_pld[i, i] = 0
+
+                    if self._bs_flag:
+                        self._upld_bs_ul[i, i] = 0
+                        self._upld_bs_ll[i, i] = 0
+
+                        if pl_flg:
+                            self._pld_bs_ul[i, i] = 0
+                            self._pld_bs_ll[i, i] = 0
+
+                            if self._ans_stl == 'alt_peel':
+                                self._pld_upld_bs_ul[i, i] = 0
+                                self._pld_upld_bs_ll[i, i] = 0
+
+                                self._upld_pld_bs_ul[i, i] = 0
+                                self._upld_pld_bs_ll[i, i] = 0
+
                     continue
 
                 tis = (self._mwr >= j) & (self._mwr < (j + self._ws))
@@ -349,16 +331,87 @@ class AppearDisappearAnalysis:
         self._aft_app_dis()
         return
 
+    def resume_from_hdf5(self, path):
+
+        '''
+        Resume computations from the state saved in the HDF5
+
+        Parameters
+        ----------
+        path : str, pathlib.Path
+            Path to HDF5 file
+        '''
+
+        assert isinstance(path, (str, Path)), (
+            'path not an instance of str of pathlib.Path!')
+
+        path = Path(path).resolve()
+
+        assert path.exists(), 'Input file not found!'
+        assert path.is_file(), 'Input is not file!'
+
+        self._h5_hdl = h5py.File(str(path), driver='core', mode='a')
+
+        h5_dss_list = []
+
+        for name in self.h5_ds_names:
+            if name not in self._h5_hdl:
+                continue
+
+            h5_dss_list.append(self._h5_hdl[name])
+
+        assert h5_dss_list, (
+            'The given file has no variables that match the ones needed '
+            'here!')
+
+        n_dss = len(h5_dss_list)
+
+        for i in range(n_dss):
+            dss = h5_dss_list[i]
+            var_labs = self.var_labs_list[i]
+
+            for lab in var_labs:
+                if lab in dss:
+                    setattr(self, lab, dss[lab][...])
+
+                elif lab in dss.attrs:
+                    setattr(self, lab, dss.attrs[lab])
+
+                elif lab in var_labs:
+                    pass
+
+                else:
+                    raise KeyError(f'Unknown variable: {lab}')
+
+        # conversions applied to some variables because hdf5 can't have them
+        # in the format that is used here.
+        if (self._twt == 'month') or (self._twt == 'year'):
+
+            self._t_idx = pd.to_datetime(self._t_idx, unit='s')
+
+        self._out_dir = Path(self._out_dir)
+
+        self._rsm_hdf5_flag = True
+        self.verify()
+        return
+
     def terminate_analysis(self):
+
+        '''Finish unfinished business here
+        '''
 
         if self._hdf5_flag:
             self._ut_hdf5()
+
             self._h5_hdl.close()
 
-        self._h5_hdl = None
+            self._h5_hdl = None
         return
 
     def _cmpt_mw_rng(self):
+
+        '''Compute moving window range, number of possible windows and
+        number of possible maximum steps per window'''
 
         win_rng = []
 
@@ -385,8 +438,9 @@ class AppearDisappearAnalysis:
 
         max_val = win_rng.max()
 
-        assert np.all(win_rng >= 0)
-        assert max_val > self._ws
+        assert np.all(win_rng >= 0), 'time_index is not ascending!'
+        assert max_val > self._ws, (
+            'Number of possible windows less than window_size!')
 
         if (self._twt == 'month') or (self._twt == 'year'):
 
@@ -400,7 +454,8 @@ class AppearDisappearAnalysis:
         self._mwr = win_rng
         self._mwi = mwi + 1
 
-        assert self._mwi > 1
+        assert self._mwi > 1, (
+            'Number of final windows cannot be less than two!')
 
         max_steps = 0
         for i in range(self._mwi):
@@ -408,7 +463,7 @@ class AppearDisappearAnalysis:
             max_steps = max(max_steps, ris.sum())
 
         max_steps = int(max_steps)
-        assert max_steps
+        assert max_steps, 'This should not happen!'
 
         self._mss = max_steps
 
@@ -417,13 +472,15 @@ class AppearDisappearAnalysis:
 
     def _bef_app_dis(self):
 
-        assert self._in_vrfd_flag
+        '''Initiate all required variables before analysis'''
+
+        assert self._in_vrfd_flag, 'Call verify first!'
 
         if self._rsm_hdf5_flag:
             return
 
         self._cmpt_mw_rng()
-        assert self._mw_rng_cmptd_flag
+        assert self._mw_rng_cmptd_flag, 'Moving window range not computed!'
 
         # ratio of test points outside refr
         self._upld = np.full(
@@ -496,6 +553,10 @@ class AppearDisappearAnalysis:
 
     def _init_hdf5_ds(self):
 
+        '''Initialize the ouputs HDF5 file and write the approriate
+        variables to it.
+        '''
+
         self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
         self._h5_hdl = h5py.File(
             str(self._h5_path), mode='w', driver='core')
@@ -509,7 +570,7 @@ class AppearDisappearAnalysis:
         if self._bs_flag:
             h5_dss_list.append('boot_arrs')
 
-        assert h5_dss_list
+        assert h5_dss_list, 'No variables selected for writing to HDF5!'
 
         n_dss = len(h5_dss_list)
 
@@ -543,18 +604,24 @@ class AppearDisappearAnalysis:
                     dss[lab] = (self._t_idx - _min_t) // _td
 
                 else:
-                    raise KeyError(lab, type(var))
+                    raise KeyError(
+                        f'Don\'t know how to handle the variable {lab} of '
+                        f'type {type(var)}')
 
         self._h5_hdl.flush()
         return
 
     def _aft_app_dis(self):
 
+        '''Things to do write after the analysis finishes'''
+
         if self._fh_flag == 0:
             self._ut_hdf5()
         return
 
     def _ut_hdf5(self):
+
+        '''Flush variables to the HDF5 file.'''
 
         if not self._hdf5_flag:
             return
@@ -581,6 +648,8 @@ class AppearDisappearAnalysis:
 
     def _get_dts(self, refr, test):
 
+        '''Get depths of test in refr'''
+
         if refr.shape[0] and test.shape[0]:
             dts = dftn(refr, test, self._uvecs, self._n_cpus)
 
@@ -591,6 +660,12 @@ class AppearDisappearAnalysis:
 
     def _fill_get_rat(self, refr, test, i, j, farr):
 
+        '''Compute the ratio of points in test that are outside of refr and
+        put it in farr.
+
+        Return the depth of all the test points as well.
+        '''
+
         test_dts = self._get_dts(refr, test)
 
         if test_dts.shape[0]:
@@ -599,6 +674,13 @@ class AppearDisappearAnalysis:
         return test_dts
 
     def _fill_get_rat_bs(self, refr, test, i, j, farr_ul, farr_ll, farr_flgs):
+
+        '''Compute the ratio of points in test that are outside of refr and
+        update the ratios in the farr_ul and farr_ll (this is for
+        bootstrapping).
+
+        Return the depth of all the test points as well.
+        '''
 
         test_dts = self._get_dts(refr, test)
 
@@ -678,6 +760,10 @@ class AppearDisappearAnalysis:
             farr_ll,
             farr_flgs):
 
+        '''Compute upper and lower bounds of ratios that are appearing or
+        disappearing using bootstrapping.
+        '''
+
         if farr_flgs[j, i]:
             farr_ul[i, j] = farr_ul[j, i]
             farr_ll[i, j] = farr_ll[j, i]
@@ -713,4 +799,3 @@ class AppearDisappearAnalysis:
             self._fill_get_rat_bs(
                 refr_bs, test_bs, i, j, farr_ul, farr_ll, farr_flgs)
         return
-

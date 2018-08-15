@@ -22,7 +22,6 @@ from depth_funcs import depth_ftn_mp as dftn
 
 from .misc import ret_mp_idxs
 from .analysis import AppearDisappearAnalysis
-from .settings import AppearDisappearSettings
 from .cyth import get_corrcoeff, get_asymms_sample
 
 plt.ioff()
@@ -42,8 +41,7 @@ class AppearDisappearPlot:
 
         self.var_labs_list = adan.var_labs_list
 
-        adso = AppearDisappearSettings()
-        self._poss_ans_stls = adso._poss_ans_stls
+        self._poss_ans_stls = adan._poss_ans_stls
 
         self.dont_read_vars = (
             '_out_dir',  #  it is important to ignore this
@@ -385,35 +383,6 @@ class AppearDisappearPlot:
         if (self._twt == 'month') or (self._twt == 'year'):
 
             self._t_idx = pd.to_datetime(self._t_idx, unit='s')
-
-        # add mwi to nvs for the diagonal being always nan
-        nvs = (~np.isnan(self._upld)).sum() + self._mwi
-        self._upld.ravel()[:nvs][::self._mwi + 1] = 0
-
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-            self._pld.ravel()[:nvs][::self._mwi + 1] = 0
-
-            if self._ans_stl == 'alt_peel':
-                self._pld_upld.ravel()[:nvs][::self._mwi + 1] = 0
-                self._upld_pld.ravel()[:nvs][::self._mwi + 1] = 0
-
-        if self._bs_flag:
-            self._upld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-            self._upld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
-
-            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-                self._pld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-                self._pld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
-
-                if self._ans_stl == 'alt_peel':
-
-                    self._pld_upld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-                    self._pld_upld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
-
-                    self._upld_pld_bs_ul.ravel()[:nvs][::self._mwi + 1] = 0
-                    self._upld_pld_bs_ll.ravel()[:nvs][::self._mwi + 1] = 0
 
         self._bef_plot_vars_set = True
         return

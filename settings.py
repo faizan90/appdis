@@ -10,7 +10,9 @@ from pathlib import Path
 
 class AppearDisappearSettings:
 
-    '''Set parameters for the AppearDisappearAnalysis class.'''
+    '''Set parameters for the AppearDisappearAnalysis class.
+    This is a baseclass.
+    '''
 
     def __init__(self, verbose=True):
 
@@ -225,3 +227,5 @@ class AppearDisappearSettings:
 
         self._in_vrfd_flag = True
         return
+
+    __verify = verify
