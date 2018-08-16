@@ -42,9 +42,9 @@ class AppearDisappearPlot:
         self._dts_vars_labs = adan._dts_vars_labs
         self._boot_vars_labs = adan._boot_vars_labs
 
-        self.h5_ds_names = adan.h5_ds_names
+        self._h5_ds_names = adan._h5_ds_names
 
-        self.var_labs_list = adan.var_labs_list
+        self._var_labs_list = adan._var_labs_list
 
         self._poss_ans_stls = adan._poss_ans_stls
 
@@ -178,43 +178,6 @@ class AppearDisappearPlot:
         self._plot_vols()
         return
 
-    def get_boundary_point_idxs(self, style, data_type):
-
-        assert self._in_vrfd_flag
-
-        assert isinstance(style, str)
-        assert style in self._poss_ans_stls
-
-        poss_data_types = ['window', 'full']
-
-        assert isinstance(data_type, str)
-        assert data_type in poss_data_types
-
-        if data_type == 'window':
-            if style == 'un_peel':
-                dts_arr = self._rudts
-
-            elif (style == 'peel') or (style == 'alt_peel'):
-
-                assert (
-                    (self._ans_stl == 'peel') or
-                    (self._ans_stl == 'alt_peel'))
-
-                dts_arr = self._rpdts
-
-            else:
-                raise NotImplementedError
-
-            res = self._get_win_bd_idxs(dts_arr)
-
-        elif data_type == 'full':
-            res = self._get_full_bd_idxs(style)
-
-        else:
-            raise NotImplementedError
-
-        return res
-
     def plot_ecops(self, style, data_type):
 
         assert self._in_vrfd_flag
@@ -257,6 +220,9 @@ class AppearDisappearPlot:
         emp_cop_out_dir = self._out_dir / 'empirical_copulas'
         emp_cop_out_dir.mkdir(exist_ok=True)
 
+        h5_hdl = h5py.File(str(self._h5_path), mode='r')  # close it later
+        bd_pts_gr = h5_hdl['bd_pts']
+
         for i in range(self._ans_dims):
             probs_arr_i = probs_arr[:, i]
             for j in range(self._ans_dims):
@@ -265,29 +231,30 @@ class AppearDisappearPlot:
 
                 probs_arr_j = probs_arr[:, j]
 
-                _idxs = self.get_boundary_point_idxs(style, data_type)
+                un_peel_idxs = bd_pts_gr[f'un_peel/{data_type}/idxs'][...]
 
                 if (style == 'peel') or (style == 'alt_peel'):
+                    peel_idxs = bd_pts_gr[f'peel/{data_type}/idxs'][...]
 
-                    probs_i = probs_arr_i[~_idxs[0]]
-                    probs_j = probs_arr_j[~_idxs[0]]
+                    probs_i = probs_arr_i[~un_peel_idxs]
+                    probs_j = probs_arr_j[~un_peel_idxs]
 
-                    non_bd_i = probs_i[~_idxs[2]]
-                    non_bd_j = probs_j[~_idxs[2]]
+                    non_bd_i = probs_arr_i[(~peel_idxs) & (~un_peel_idxs)]
+                    non_bd_j = probs_arr_j[(~peel_idxs) & (~un_peel_idxs)]
 
-                    bd_i = probs_i[_idxs[2]]
-                    bd_j = probs_j[_idxs[2]]
+                    bd_i = probs_arr_i[peel_idxs]
+                    bd_j = probs_arr_j[peel_idxs]
 
                 elif style == 'un_peel':
 
                     probs_i = probs_arr_i
                     probs_j = probs_arr_j
 
-                    non_bd_i = probs_arr_i[~_idxs[0]]
-                    non_bd_j = probs_arr_j[~_idxs[0]]
+                    non_bd_i = probs_arr_i[~un_peel_idxs]
+                    non_bd_j = probs_arr_j[~un_peel_idxs]
 
-                    bd_i = probs_arr_i[_idxs[0]]
-                    bd_j = probs_arr_j[_idxs[0]]
+                    bd_i = probs_arr_i[un_peel_idxs]
+                    bd_j = probs_arr_j[un_peel_idxs]
 
                 nchull_pts = bd_i.shape[0]
 
@@ -338,6 +305,7 @@ class AppearDisappearPlot:
                 plt.clf()
 
         plt.close()
+        h5_hdl.close()
         return
 
     def _bef_plot(self):
@@ -346,15 +314,15 @@ class AppearDisappearPlot:
             self._nticks = 15
             self._cmap = plt.get_cmap('jet')
 
-        self._h5_hdl = h5py.File(str(self._h5_path), mode='r')
+        h5_hdl = h5py.File(str(self._h5_path), mode='r')
 
         h5_dss_list = []
 
-        for name in self.h5_ds_names:
-            if name not in self._h5_hdl:
+        for name in self._h5_ds_names:
+            if name not in h5_hdl:
                 continue
 
-            h5_dss_list.append(self._h5_hdl[name])
+            h5_dss_list.append(h5_hdl[name])
 
         assert h5_dss_list
 
@@ -362,7 +330,7 @@ class AppearDisappearPlot:
 
         for i in range(n_dss):
             dss = h5_dss_list[i]
-            var_labs = self.var_labs_list[i]
+            var_labs = self._var_labs_list[i]
 
             for lab in var_labs:
 
@@ -382,7 +350,7 @@ class AppearDisappearPlot:
                 else:
                     raise KeyError(lab)
 
-        self._h5_hdl.close()
+        h5_hdl.close()
 
         # conversions applied to some variables because hdf5 cant have them
         # in the format that is used here
@@ -1053,54 +1021,3 @@ class AppearDisappearPlot:
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()
         return
-
-    def _get_win_bd_idxs(self, dts_arr):
-
-        chull_idxs = []
-        idxs_rng = np.arange(self._mwi)
-
-        for i in idxs_rng:
-            ct = dts_arr['cts'][i]
-
-            dts = dts_arr['dts'][i, :ct]
-            idxs = dts_arr['idx'][i, :ct]
-
-            bd_idxs = idxs[dts <= self._pl_dth]
-
-            chull_idxs.append(bd_idxs)
-
-        _ = np.unique(np.concatenate(chull_idxs))
-
-        chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
-        chull_idxs[_] = True
-        chull_time_idxs = self._t_idx[chull_idxs]
-
-        return (chull_idxs, chull_time_idxs)
-
-    def _get_full_bd_idxs(self, style):
-
-        cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
-
-        refr_refr_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
-
-        upld_chull_idxs = refr_refr_dts <= self._pl_dth
-        upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
-
-        pld_chull_idxs = None
-        pld_chull_time_idxs = None
-
-        if (style == 'peel') or (style == 'alt_peel'):
-            refr_pld = cd_arr[~upld_chull_idxs].copy('c')
-
-            refr_refr_pld_dts = dftn(
-                refr_pld, refr_pld, self._uvecs, self._n_cpus)
-
-            pld_chull_idxs = refr_refr_pld_dts <= self._pl_dth
-            pld_chull_time_idxs = (
-                self._t_idx[~upld_chull_idxs][pld_chull_idxs])
-
-        return (
-            upld_chull_idxs,
-            upld_chull_time_idxs,
-            pld_chull_idxs,
-            pld_chull_time_idxs)

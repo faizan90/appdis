@@ -114,7 +114,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             )
 
         # sequence matters
-        self.h5_ds_names = (
+        self._h5_ds_names = (
             'in_data',
             'settings',
             'inter_vars',
@@ -123,7 +123,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             'boot_arrs',
             )
 
-        self.var_labs_list = (
+        self._var_labs_list = (
             self._data_vars_labs,
             self._sett_vars_labs,
             self._inter_vars_labs,
@@ -329,8 +329,8 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             if self._fh_flag == 1:
                 self._ut_hdf5()
 
-        self._aft_app_dis()
         self._app_dis_done_flag = True
+        self._aft_app_dis()
         return
 
     def resume_from_hdf5(self, path):
@@ -356,7 +356,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         h5_dss_list = []
 
-        for name in self.h5_ds_names:
+        for name in self._h5_ds_names:
             if name not in self._h5_hdl:
                 continue
 
@@ -370,7 +370,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         for i in range(n_dss):
             dss = h5_dss_list[i]
-            var_labs = self.var_labs_list[i]
+            var_labs = self._var_labs_list[i]
 
             for lab in var_labs:
                 if lab in dss:
@@ -399,11 +399,11 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
     def terminate_analysis(self):
 
-        '''Finish unfinished business here
-        '''
+        '''Finish unfinished business here'''
+
+        assert self._app_dis_done_flag
 
         if self._hdf5_flag:
-            self._ut_hdf5()
 
             self._h5_hdl.close()
 
@@ -602,7 +602,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             str(self._h5_path), mode='w', driver='core')
 
         # sequence matters
-        h5_dss_list = list(self.h5_ds_names[:4])
+        h5_dss_list = list(self._h5_ds_names[:4])
 
         if self._vdl:
             h5_dss_list.append('dts_vars')
@@ -616,7 +616,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         for i in range(n_dss):
             dss = self._h5_hdl.create_group(h5_dss_list[i])
-            var_labs = self.var_labs_list[i]
+            var_labs = self._var_labs_list[i]
 
             for lab in var_labs:
 
@@ -655,8 +655,20 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         '''Things to do write after the analysis finishes'''
 
+        assert self._app_dis_done_flag
+
         if self._fh_flag == 0:
             self._ut_hdf5()
+
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+            self._save_boundary_point_idxs('peel', 'full')
+            self._save_boundary_point_idxs('peel', 'window')
+
+        else:
+            self._save_boundary_point_idxs('un_peel', 'full')
+
+        self._save_boundary_point_idxs('un_peel', 'window')
+
         return
 
     def _ut_hdf5(self):
@@ -839,3 +851,118 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             self._fill_get_rat_bs(
                 refr_bs, test_bs, i, j, farr_ul, farr_ll, farr_flgs)
         return
+
+    def _save_boundary_point_idxs(self, style, data_type):
+
+        assert self._in_vrfd_flag
+
+        assert isinstance(style, str)
+        assert style in self._poss_ans_stls
+
+        poss_data_types = ['window', 'full']
+
+        assert isinstance(data_type, str)
+        assert data_type in poss_data_types
+
+        if not self._hdf5_flag:
+            return
+
+        gname = 'bd_pts'
+
+        _td = pd.Timedelta('1s')
+        _min_t = pd.Timestamp("1970-01-01")
+
+        if gname not in self._h5_hdl:
+            bd_pts_gr = self._h5_hdl.create_group(gname)
+
+        else:
+            bd_pts_gr = self._h5_hdl[gname]
+
+        if data_type == 'window':
+            if style == 'un_peel':
+                dts_arr = self._rudts
+
+            elif style == 'peel':
+
+                assert (
+                    (self._ans_stl == 'peel') or
+                    (self._ans_stl == 'alt_peel'))
+
+                dts_arr = self._rpdts
+
+            else:
+                raise NotImplementedError
+
+            res = self._get_win_bd_idxs(dts_arr)
+            bd_pts_gr[f'{style}/{data_type}/idxs'] = res[0]
+            bd_pts_gr[f'{style}/{data_type}/time'] = (res[1] - _min_t) // _td
+
+        elif data_type == 'full':
+            res = self._get_full_bd_idxs(style)
+
+            bd_pts_gr[f'un_peel/{data_type}/idxs'] = res[0]
+            bd_pts_gr[f'un_peel/{data_type}/time'] = (res[1] - _min_t) // _td
+
+            bd_pts_gr[f'peel/{data_type}/idxs'] = res[2]
+            bd_pts_gr[f'peel/{data_type}/time'] = (res[3] - _min_t) // _td
+
+        else:
+            raise NotImplementedError
+
+        self._h5_hdl.flush()
+        return
+
+    def _get_win_bd_idxs(self, dts_arr):
+
+        chull_idxs = []
+        idxs_rng = np.arange(self._mwi)
+
+        for i in idxs_rng:
+            ct = dts_arr['cts'][i]
+
+            dts = dts_arr['dts'][i, :ct]
+            idxs = dts_arr['idx'][i, :ct]
+
+            bd_idxs = idxs[dts <= self._pl_dth]
+
+            chull_idxs.append(bd_idxs)
+
+        _ = np.unique(np.concatenate(chull_idxs))
+
+        chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
+        chull_idxs[_] = True
+        chull_time_idxs = self._t_idx[chull_idxs]
+
+        return (chull_idxs, chull_time_idxs)
+
+    def _get_full_bd_idxs(self, style):
+
+        assert (style == 'peel') or (style == 'un_peel')
+
+        cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
+
+        refr_refr_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
+
+        upld_chull_idxs = refr_refr_dts <= self._pl_dth
+        upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
+
+        pld_chull_idxs = np.array([], dtype=np.int64, order='c')
+        pld_chull_time_idxs = pd.DatetimeIndex([])
+
+        if style == 'peel':
+            refr_pld = cd_arr[~upld_chull_idxs].copy('c')
+
+            refr_refr_pld_dts = dftn(
+                refr_pld, refr_pld, self._uvecs, self._n_cpus)
+
+            pld_chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
+            pld_chull_idxs[~upld_chull_idxs] = (
+                refr_refr_pld_dts <= self._pl_dth)
+
+            pld_chull_time_idxs = self._t_idx[pld_chull_idxs]
+
+        return (
+            upld_chull_idxs,
+            upld_chull_time_idxs,
+            pld_chull_idxs,
+            pld_chull_time_idxs)
