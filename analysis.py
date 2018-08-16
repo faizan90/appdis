@@ -94,7 +94,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             )
 
         self._dts_vars_labs = (
-            '_rdts',
+            '_rudts',
             '_rpdts',
             )
 
@@ -136,6 +136,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         self._in_vrfd_flag = False
         self._mw_rng_cmptd_flag = False
+        self._app_dis_done_flag = False
         return
 
     def verify(self):
@@ -214,9 +215,9 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
                 if self._vdl:
                     ct = refr_refr_dts.shape[0]
-                    self._rdts['cts'][i] = ct
-                    self._rdts['dts'][i, :ct] = refr_refr_dts
-                    self._rdts['idx'][i, :ct] = np.where(ris)[0]
+                    self._rudts['cts'][i] = ct
+                    self._rudts['dts'][i, :ct] = refr_refr_dts
+                    self._rudts['idx'][i, :ct] = np.where(ris)[0]
 
                     step_lab = ''
 
@@ -229,7 +230,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                     elif self._twt == 'range':
                         step_lab = self._t_idx[ris][0]
 
-                    self._rdts['lab'][i] = step_lab
+                    self._rudts['lab'][i] = step_lab
 
                     if pl_flg:
                         refr_pld_dts = self._get_dts(refr_pld, refr_pld)
@@ -238,7 +239,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                         self._rpdts['dts'][i, :pct] = refr_pld_dts
                         self._rpdts['idx'][i, :pct] = (
                             np.where(ris)[0][refr_pldis])
-                        self._rpdts['lab'][i] = self._rdts['lab'][i]
+                        self._rpdts['lab'][i] = self._rudts['lab'][i]
 
                 if self._bs_flag:
                     rpis = np.zeros_like(ris, dtype=bool)
@@ -329,6 +330,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                 self._ut_hdf5()
 
         self._aft_app_dis()
+        self._app_dis_done_flag = True
         return
 
     def resume_from_hdf5(self, path):
@@ -407,6 +409,45 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
             self._h5_hdl = None
         return
+
+    def get_moving_window_range(self):
+
+        assert self._mw_rng_cmptd_flag, 'Moving window range not computed!'
+
+        return self._mwr
+
+    def get_number_of_windows(self):
+
+        assert self._mw_rng_cmptd_flag, 'Moving window range not computed!'
+
+        return self._mwi
+
+    def get_maximum_steps_per_window(self):
+
+        assert self._mw_rng_cmptd_flag, 'Moving window range not computed!'
+
+        return self._mss
+
+    def get_unpeeled_appear_disappear_ratios(self):
+
+        assert self._app_dis_done_flag, 'Call cmpt_appear_disappear first!'
+
+        return self._upld
+
+    def get_peeled_appear_disappear_ratios(self):
+
+        assert self._app_dis_done_flag, 'Call cmpt_appear_disappear first!'
+        assert (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'), (
+            'Incompatible analysis style!')
+
+        return self._pld
+
+    def get_alternating_appear_disappear_ratios(self):
+
+        assert self._app_dis_done_flag, 'Call cmpt_appear_disappear first!'
+        assert self._ans_stl == 'alt_peel', 'Incompatible analysis style!'
+
+        return (self._pld_upld, self._upld_pld)
 
     def _cmpt_mw_rng(self):
 
@@ -503,7 +544,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                 (self._mwi, self._mss), dtype=np.int64, order='c')
             vol_dts = vol_idx.copy()
 
-            self._rdts = np.array(
+            self._rudts = np.array(
                 (vol_cts, vol_lab, vol_idx, vol_dts), dtype=vol_dt, order='c')
 
         if self._bs_flag:
@@ -517,8 +558,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
             self._pld = self._upld.copy()
 
-            self._rpdts = np.array(
-                (vol_cts, vol_lab, vol_idx, vol_dts), dtype=vol_dt, order='c')
+            self._rpdts = self._rudts.copy()
 
             if self._bs_flag:
                 self._pld_bs_ul = np.full(self._pld.shape, -np.inf)

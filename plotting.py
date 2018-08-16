@@ -37,6 +37,11 @@ class AppearDisappearPlot:
 
         adan = AppearDisappearAnalysis()
 
+        self._data_vars_labs = adan._data_vars_labs
+        self._app_dis_vars_labs = adan._app_dis_vars_labs
+        self._dts_vars_labs = adan._dts_vars_labs
+        self._boot_vars_labs = adan._boot_vars_labs
+
         self.h5_ds_names = adan.h5_ds_names
 
         self.var_labs_list = adan.var_labs_list
@@ -187,7 +192,7 @@ class AppearDisappearPlot:
 
         if data_type == 'window':
             if style == 'un_peel':
-                dts_arr = self._rdts
+                dts_arr = self._rudts
 
             elif (style == 'peel') or (style == 'alt_peel'):
 
@@ -366,6 +371,7 @@ class AppearDisappearPlot:
 
                 if lab in dss:
                     setattr(self, lab, dss[lab][...])
+                    setattr(getattr(self, lab).flags, 'writeable', False)
 
                 elif lab in dss.attrs:
                     setattr(self, lab, dss.attrs[lab])
@@ -846,10 +852,10 @@ class AppearDisappearPlot:
 
         if self._mp_pool is not None:
             uvols_res = self._prep_for_vols(
-                self._h5_path, '/dts_vars/_rdts', 'in_data/_data_arr')
+                self._h5_path, '/dts_vars/_rudts', 'in_data/_data_arr')
 
         else:
-            uvols_res = self._prep_for_vols(self._rdts)
+            uvols_res = self._prep_for_vols(self._rudts)
 
         ulabs, uvols, uloo_vols, un_chull_cts, uchull_idxs = uvols_res
 
