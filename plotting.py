@@ -18,8 +18,6 @@ from scipy.spatial import ConvexHull
 from scipy.stats import rankdata
 from matplotlib.ticker import MaxNLocator
 
-from depth_funcs import depth_ftn_mp as dftn
-
 from .misc import ret_mp_idxs
 from .analysis import AppearDisappearAnalysis
 from .cyth import get_corrcoeff, get_asymms_sample

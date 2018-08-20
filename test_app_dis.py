@@ -39,7 +39,9 @@ def main():
     ecop_data_type = 'window'
 
     ann_flag = False
+    plot_flag = False
 #     ann_flag = True
+#     plot_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
@@ -82,16 +84,17 @@ def main():
         ad_ans.cmpt_appear_disappear()
         ad_ans.terminate_analysis()
 
-    ad_plot = AppearDisappearPlot()
-    ad_plot.set_hdf5(hdf5_path)
-    ad_plot.set_outputs_directory(out_dir)
-    ad_plot.set_fig_props(n_ticks, cmap)
-    ad_plot.verify()
-    ad_plot.set_n_cpus(n_cpus)  # must call after verify to take effect
+    if plot_flag:
+        ad_plot = AppearDisappearPlot()
+        ad_plot.set_hdf5(hdf5_path)
+        ad_plot.set_outputs_directory(out_dir)
+        ad_plot.set_fig_props(n_ticks, cmap)
+        ad_plot.verify()
+        ad_plot.set_n_cpus(n_cpus)  # must call after verify to take effect
 
-#     ad_plot.plot_app_dis()
-#     ad_plot.plot_volumes(loo_flag)
-    ad_plot.plot_ecops(ecop_style, ecop_data_type)
+        ad_plot.plot_app_dis()
+        ad_plot.plot_volumes(loo_flag)
+        ad_plot.plot_ecops(ecop_style, ecop_data_type)
     return
 
 
