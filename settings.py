@@ -11,6 +11,7 @@ from pathlib import Path
 class AppearDisappearSettings:
 
     '''Set parameters for the AppearDisappearAnalysis class.
+
     This is a baseclass.
     '''
 
@@ -102,6 +103,9 @@ class AppearDisappearSettings:
         assert analysis_style in self._poss_ans_stls, (
             f'analysis_style can only be one of {self._poss_ans_stls}!')
 
+        if analysis_style == 'un_peel':
+            peel_depth = 0
+
         if n_cpus != 'auto':
             assert isinstance(n_cpus, int), 'n_cpus not an integer!'
             assert n_cpus > 0
@@ -115,6 +119,15 @@ class AppearDisappearSettings:
         self._ans_dims = analyze_dims
         self._pl_dth = peel_depth
         self._n_cpus = n_cpus
+
+        if self.verbose:
+            print(f'Set the following analysis parameters:')
+            print(f'\tWindow size: {self._ws}')
+            print(f'\tTime window type: {self._twt}')
+            print(f'\tAnalysis style: {self._ans_stl}')
+            print(f'\tAnalysis dimensions: {self._ans_dims}')
+            print(f'\tPeeling depth: {self._pl_dth}')
+            print(f'\tN. cpus: {self._n_cpus}')
 
         self._ans_prms_set_flag = True
         return
@@ -144,6 +157,9 @@ class AppearDisappearSettings:
 
         self._out_dir = out_dir
 
+        if self.verbose:
+            print('Set outputs directory to:', str(out_dir))
+
         self._out_dir_set_flag = True
         return
 
@@ -162,6 +178,9 @@ class AppearDisappearSettings:
 
         self._bs_flag = bool(n_boots)
         self._n_bs = n_boots
+
+        if self.verbose:
+            print(f'Number of bootstraps: {self._n_bs}.')
         return
 
     def save_outputs_to_hdf5_on_off(self, on, flush_flag):
@@ -190,6 +209,10 @@ class AppearDisappearSettings:
 
         self._hdf5_flag = on
         self._fh_flag = flush_flag
+
+        if self.verbose:
+            print(f'Write to HDF5 flag: {self._hdf5_flag}.')
+
         return
 
     def save_volume_data_level(self, level):
@@ -224,6 +247,9 @@ class AppearDisappearSettings:
             assert self._pl_dth > 0, (
                 f'For analysis_style: {self._ans_style}, '
                 'peel_depth should be greater than zero!')
+
+        if self.verbose:
+            print('All analysis parameters verified to be correct.')
 
         self._in_vrfd_flag = True
         return

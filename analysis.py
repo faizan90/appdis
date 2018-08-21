@@ -710,7 +710,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         return dts
 
-    def _fill_get_rat(self, refr, test, i, j, farr):
+    def _fill_get_rat(self, refr, test, idx_i, idx_j, farr):
 
         '''Compute the ratio of points in test that are outside of refr and
         put it in farr.
@@ -721,11 +721,11 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         test_dts = self._get_dts(refr, test)
 
         if test_dts.shape[0]:
-            farr[i, j] = (test_dts == 0).sum() / test_dts.shape[0]
+            farr[idx_i, idx_j] = (test_dts == 0).sum() / test_dts.shape[0]
 
         return test_dts
 
-    def _fill_get_rat_bs(self, refr, test, i, j, farr_ul, farr_ll, farr_flgs):
+    def _fill_get_rat_bs(self, refr, test, idx_i, idx_j, farr_ul, farr_ll, farr_flgs):
 
         '''Compute the ratio of points in test that are outside of refr and
         update the ratios in the farr_ul and farr_ll (this is for
@@ -736,17 +736,17 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         test_dts = self._get_dts(refr, test)
 
-        farr_flgs[i, j] = True
+        farr_flgs[idx_i, idx_j] = True
 
         if test_dts.shape[0]:
             rat = (test_dts == 0).sum() / test_dts.shape[0]
 
-            farr_ul[i, j] = max(farr_ul[i, j], rat)
-            farr_ll[i, j] = min(farr_ll[i, j], rat)
+            farr_ul[idx_i, idx_j] = max(farr_ul[idx_i, idx_j], rat)
+            farr_ll[idx_i, idx_j] = min(farr_ll[idx_i, idx_j], rat)
 
         return test_dts
 
-    def _pld_upld_rats(self, refr, test, refr_pld, i, j, *args):
+    def _pld_upld_rats(self, refr, test, refr_pld, idx_i, idx_j, *args):
 
         '''Just to have less white space
         '''
@@ -755,7 +755,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         test_pldis = test_test_dts > self._pl_dth
         test_pld = test[test_pldis, :]
 
-        self._fill_get_rat(refr_pld, test_pld, i, j, self._pld)
+        self._fill_get_rat(refr_pld, test_pld, idx_i, idx_j, self._pld)
 
         if self._bs_flag:
             ris, tis, rpis, cd_arr = args[0], args[1], args[2], args[3]
@@ -768,23 +768,23 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                 rpis,
                 tpis,
                 cd_arr,
-                i,
-                j,
+                idx_i,
+                idx_j,
                 self._pld_bs_ul,
                 self._pld_bs_ll,
                 self._pld_bs_flg)
 
         if self._ans_stl == 'alt_peel':
-            self._fill_get_rat(refr_pld, test, i, j, self._pld_upld)
-            self._fill_get_rat(refr, test_pld, i, j, self._upld_pld)
+            self._fill_get_rat(refr_pld, test, idx_i, idx_j, self._pld_upld)
+            self._fill_get_rat(refr, test_pld, idx_i, idx_j, self._upld_pld)
 
             if self._bs_flag:
                 self._cmpt_bs_lims(
                     rpis,
                     tis,
                     cd_arr,
-                    i,
-                    j,
+                    idx_i,
+                    idx_j,
                     self._pld_upld_bs_ul,
                     self._pld_upld_bs_ll,
                     self._pld_upld_bs_flg)
@@ -793,8 +793,8 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                     ris,
                     tpis,
                     cd_arr,
-                    i,
-                    j,
+                    idx_i,
+                    idx_j,
                     self._upld_pld_bs_ul,
                     self._upld_pld_bs_ll,
                     self._upld_pld_bs_flg)
@@ -806,8 +806,8 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             ris,
             tis,
             cd_arr,
-            i,
-            j,
+            idx_i,
+            idx_j,
             farr_ul,
             farr_ll,
             farr_flgs):
@@ -816,10 +816,10 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         disappearing using bootstrapping.
         '''
 
-        if farr_flgs[j, i]:
-            farr_ul[i, j] = farr_ul[j, i]
-            farr_ll[i, j] = farr_ll[j, i]
-            farr_flgs[i, j] = farr_flgs[j, i]
+        if farr_flgs[idx_j, idx_i]:
+            farr_ul[idx_i, idx_j] = farr_ul[idx_j, idx_i]
+            farr_ll[idx_i, idx_j] = farr_ll[idx_j, idx_i]
+            farr_flgs[idx_i, idx_j] = farr_flgs[idx_j, idx_i]
             return
 
         rmwr = self._mwr[ris]
@@ -830,18 +830,47 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         n_rbsis = np.unique(rmwr).shape[0] + np.unique(tmwr).shape[0]
 
+        unacc_rseq = []
+        for wi in rmwr:
+            if wi in unacc_rseq:
+                continue
+
+            unacc_rseq.append(wi)
+
+        unacc_tseq = []
+        for wi in tmwr:
+            if wi in unacc_tseq:
+                continue
+
+            unacc_tseq.append(wi)
+
+        unacc_seq = unacc_rseq + unacc_tseq
+
         unq_rtmwrs = np.unique(np.concatenate((rmwr, tmwr)))
 
-        for _ in range(self._n_bs):
+        bs_ctr = 0
+        unacc_seq_ctr = 0
+        while bs_ctr < self._n_bs:
+
+            if unacc_seq_ctr >= 5:
+                raise ValueError(
+                    'Window size is too short for having unique sequences '
+                    'for bootstrapping. Increase window size!')
+
             rbsis = np.random.choice(
                 unq_rtmwrs,
                 size=n_rbsis,
-                replace=True)
+                replace=True).tolist()
+
+            if np.all(unacc_seq == rbsis):
+                unacc_seq_ctr += 1
+                print('Unacceptable sequence!')
+                continue
 
             bs_set = []
             for ibs in rbsis:
                 ibsis = (self._mwr == ibs) & rtmwrs
-                bs_set.append(cd_arr[ibsis, :].copy('c'))
+                bs_set.append(cd_arr[ibsis, :])
 
             bs_set = np.concatenate(bs_set, axis=0)
 
@@ -849,7 +878,9 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             test_bs = bs_set[n_refr:, :]
 
             self._fill_get_rat_bs(
-                refr_bs, test_bs, i, j, farr_ul, farr_ll, farr_flgs)
+                refr_bs, test_bs, idx_i, idx_j, farr_ul, farr_ll, farr_flgs)
+            bs_ctr += 1
+
         return
 
     def _save_boundary_point_idxs(self, style, data_type):

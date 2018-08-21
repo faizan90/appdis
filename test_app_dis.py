@@ -15,37 +15,38 @@ from appdis import (
 
 
 def main():
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_temperature')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
+    in_var_file = main_dir / r'ecad_tg_anomaly_pca_1961_2017.pkl'
 
-    n_uvecs = int(1e2)
+    n_uvecs = int(1e3)
     n_cpus = 'auto'
-    n_dims = 3
-    ws = 5  # window size
-    analysis_style = 'peel'
+    n_dims = 6
+    ws = 10  # window size
+    analysis_style = 'un_peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
 
     peel_depth = 1  # greater than this are kept
-    n_boots = 0
+    n_boots = 10
     hdf_flush_flag = 0
     vol_data_lev = 1
-    loo_flag = False
+    loo_flag = True
 
     ecop_style = 'un_peel'
     ecop_data_type = 'window'
 
     ann_flag = False
     plot_flag = False
-#     ann_flag = True
-#     plot_flag = True
+
+    ann_flag = True
+    plot_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_2')
+               f'{peel_depth}_pldt')
 
     print('out_dir:', out_dir)
 

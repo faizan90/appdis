@@ -15,7 +15,8 @@ from depth_funcs import gen_usph_vecs_norm_dist_mp as gen_usph_vecs
 class AppearDisappearData:
 
     '''Set the data for the AppearDisappearAnalysis class.
-    This is a baseclass.
+
+    This is a base class.
     '''
 
     def __init__(
@@ -53,7 +54,7 @@ class AppearDisappearData:
     def set_data_array(self, data_arr):
 
         '''Set the time series data array for the appearing and disappearing
-        events analysis.
+        events' analysis.
 
         Parameters
         ----------
@@ -89,13 +90,17 @@ class AppearDisappearData:
         self._n_data_pts = data_arr.shape[0]
         self._n_data_dims = data_arr.shape[1]
 
+        if self.verbose:
+            print(f'Data array set with {self._n_data_pts} rows and '
+                  f'{self._n_data_dims} columns.')
+
         self._data_arr_set_flag = True
         return
 
     def set_time_index(self, time_index):
 
         '''Set the time series index array for the appearing and disappearing
-        events analysis.
+        events' analysis.
 
         Parameters
         ----------
@@ -146,6 +151,10 @@ class AppearDisappearData:
 
         self._t_idx_t = time_index_type
 
+        if self.verbose:
+            print(f'Time index set with a total length of '
+                  f'{self._t_idx.shape[0]} and type: {self._t_idx_t}.')
+
         self._time_index_set_flag = True
         return
 
@@ -183,6 +192,10 @@ class AppearDisappearData:
         self._uvecs.flags.writeable = self._mtbl_flag
 
         self._n_uvecs = uvecs.shape[0]
+
+        if self.verbose:
+            print(f'Unit vectors set with {self._n_uvecs} points and '
+                  f'{self._uvecs.shape[0]} dimensions.')
 
         self._uvecs_set_flag = True
         return
@@ -223,12 +236,19 @@ class AppearDisappearData:
             assert n_uvec_dims <= self._n_data_dims, (
                 'uvecs have more columns than those of data_arr!')
 
+        if self.verbose:
+            print(f'Generating {n_uvecs} unit vectors with {n_uvec_dims} '
+                  f'dimensions using {n_cpus} threads...')
+
         uvecs = gen_usph_vecs(n_uvecs, n_uvec_dims, n_cpus)
 
         self._uvecs = uvecs
         self._n_uvecs = uvecs.shape[0]
 
         self._uvecs.flags.writeable = self._mtbl_flag
+
+        if self.verbose:
+            print(f'Done generating unit vectors.')
 
         self._uvecs_set_flag = True
         return
@@ -239,8 +259,8 @@ class AppearDisappearData:
 
         NOTE:
         -----
-            These are just some additional checks. This function should be
-            always called after all the inputs are set and ready.
+            These are just some additional checks. This function should
+            always be called after all the inputs are set and ready.
         '''
 
         assert self._data_arr_set_flag, 'Call set_data_array first!'
@@ -257,6 +277,9 @@ class AppearDisappearData:
         uvec_mags = (self._uvecs ** 2).sum(axis=1) ** 0.5
         assert np.all(np.isclose(uvec_mags, 1.0)), (
             'unit vectors have magnitudes unequal to one!')
+
+        if self.verbose:
+            print('All data inputs verified to be correct.')
 
         self._in_vrfd_flag = True
         return
