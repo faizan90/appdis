@@ -171,6 +171,9 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             assert (self._ws + 1) < self._n_data_pts, (
                 'window_size cannot be greater than the number of steps!')
 
+        if self.verbose:
+            print('All data inputs verified to be correct for analysis.')
+
         self._in_vrfd_flag = True
         return
 
@@ -181,6 +184,9 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         self._bef_app_dis()
 
         assert self._in_vrfd_flag, 'Call verify first!'
+
+        if self.verbose:
+            print('Computing appearing and disappearing cases...')
 
         pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
 
@@ -331,6 +337,9 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         self._app_dis_done_flag = True
         self._aft_app_dis()
+
+        if self.verbose:
+            print('Done computing appearing and disappearing cases.')
         return
 
     def resume_from_hdf5(self, path):
@@ -395,6 +404,9 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         self._rsm_hdf5_flag = True
         self.verify()
+
+        if self.verbose:
+            print('Loaded data from HDF5.')
         return
 
     def terminate_analysis(self):
@@ -748,8 +760,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
     def _pld_upld_rats(self, refr, test, refr_pld, idx_i, idx_j, *args):
 
-        '''Just to have less white space
-        '''
+        '''Just to have less white space'''
 
         test_test_dts = self._get_dts(test, test)
         test_pldis = test_test_dts > self._pl_dth
@@ -864,7 +875,10 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
             if np.all(unacc_seq == rbsis):
                 unacc_seq_ctr += 1
-                print('Unacceptable sequence!')
+
+                if self.verbose:
+                    print('Unacceptable sequence encountered in '
+                          'bootstrapping!')
                 continue
 
             bs_set = []

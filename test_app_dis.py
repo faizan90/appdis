@@ -23,20 +23,17 @@ def main():
     n_uvecs = int(1e3)
     n_cpus = 'auto'
     n_dims = 6
-    ws = 10  # window size
-    analysis_style = 'un_peel'
+    ws = 5  # window size
+    analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
 
     peel_depth = 1  # greater than this are kept
-    n_boots = 10
+    n_boots = 2
     hdf_flush_flag = 0
     vol_data_lev = 1
     loo_flag = True
-
-    ecop_style = 'un_peel'
-    ecop_data_type = 'window'
 
     ann_flag = False
     plot_flag = False
@@ -95,7 +92,7 @@ def main():
 
         ad_plot.plot_app_dis()
         ad_plot.plot_volumes(loo_flag)
-        ad_plot.plot_ecops(ecop_style, ecop_data_type)
+        ad_plot.plot_ecops()
     return
 
 

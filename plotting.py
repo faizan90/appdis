@@ -27,6 +27,8 @@ plt.ioff()
 
 class AppearDisappearPlot:
 
+    '''Plot the results of AppearDisappearAnalysis saved in the HDF5 file.'''
+
     def __init__(self, verbose=True):
 
         assert isinstance(verbose, bool)
@@ -72,6 +74,16 @@ class AppearDisappearPlot:
 
     def set_hdf5(self, path):
 
+        '''Set the path to inputs HDF5 file.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            Path to the input HDF5 file. This file is the same as the one
+            written by the AppearDisappearAnalysis class.
+
+        '''
+
         assert isinstance(path, (str, Path))
 
         path = Path(path).resolve()
@@ -80,10 +92,24 @@ class AppearDisappearPlot:
 
         self._h5_path = Path(path)
 
+        if self.verbose:
+            print('Set plotting input HDF5 path to:', str(path))
+
         self._h5_path_set_flag = True
         return
 
     def set_outputs_directory(self, out_dir, exist_ok=True):
+
+        '''Set the directory to save all the plots in.
+
+        Parameters
+        ----------
+        out_dir : str or pathlib.Path
+            The directory in which to save the plots in. Will be created if
+            not there.
+        exist_ok : bool
+            If False, raise an IOError (to avoid overwriting).
+        '''
 
         assert isinstance(out_dir, (str, Path))
 
@@ -95,10 +121,24 @@ class AppearDisappearPlot:
 
         self._out_dir = out_dir
 
+        if self.verbose:
+            print('Set plotting outputs path to:', str(out_dir))
+
         self._out_dir_set_flag = True
         return
 
     def set_fig_props(self, n_ticks, cmap):
+
+        '''Set properties of the output figures.
+
+        Parameters
+        ----------
+        n_ticks : int
+            The number of ticks on both the axes. Default is 15 in case this
+            function is not called.
+        cmap : str or matplotlib.colors.Colormap
+            The color map to use while plotting grids. Default is jet.
+        '''
 
         assert isinstance(n_ticks, int)
         assert (n_ticks > 0) and np.isfinite(n_ticks)
@@ -119,10 +159,21 @@ class AppearDisappearPlot:
 
     def verify(self):
 
+        '''Verify that all the inputs are correct.
+
+        NOTE:
+        -----
+            These are just some additional checks. This function should
+            always be called after all the inputs are set and ready.
+        '''
+
         assert self._h5_path_set_flag
         assert self._out_dir_set_flag
 
         self._bef_plot()
+
+        if self.verbose:
+            print('All plotting inputs verfied to be correct.')
 
         self._in_vrfd_flag = True
         return
@@ -130,6 +181,16 @@ class AppearDisappearPlot:
     def set_n_cpus(self, n_cpus='auto'):
 
         # must call after verify to take effect
+        '''Set the number of threads used while plotting.
+
+        It is mainly required for the volume computation.
+
+        Parameters
+        ----------
+        n_cpus : str, int
+            Number of threads.
+            If 'auto' then use one less than the maximum available threads.
+        '''
 
         assert self._in_vrfd_flag
 
@@ -139,10 +200,27 @@ class AppearDisappearPlot:
         else:
             n_cpus = max(1, psutil.cpu_count() - 1)
 
+        if self.verbose:
+            print('Plotting N. cpus set to:', n_cpus)
+
         self._n_cpus = n_cpus
         return
 
     def plot_app_dis(self):
+
+        '''Plot the appearing and disappearing cases on a grid.
+
+        The types and number of plots are dependent on whatever was computed
+        by the AppearDisappearAnalysis.cmpt_app_dis function.
+
+        e.g. if analysis_style was 'peel' then both peeled and unpeeled cases
+        are plotted.
+
+        If bootstrapping was on then those results are also plotted.
+        '''
+
+        if self.verbose:
+            print('Plotting appearing and disappearing cases...')
 
         self._plot_app_dis(self._upld, 'upld_plot.png', 'Both unpeeled')
 
@@ -163,9 +241,24 @@ class AppearDisappearPlot:
 
         if self._bs_flag:
             self._plot_bs()
+
+        if self.verbose:
+            print('Done plotting appearing and disappearing cases.')
+
         return
 
     def plot_volumes(self, loo_flag=False):
+
+        '''Plot the convex hull volumes of every window used in the analysis.
+
+        Parameters
+        ----------
+        loo_flag : bool
+            If True then leave one point out of all the points in the convex
+            hull and compute and plot volume. This helps to detect points that
+            are too far away and by removing them the hull volume drops
+            significantly.
+        '''
 
         assert isinstance(loo_flag, bool)
 
@@ -173,22 +266,55 @@ class AppearDisappearPlot:
 
         assert self._in_vrfd_flag
 
+        if self.verbose:
+            print('Plotting moving window convex hull volumes...')
+            print('Leave one-out flag:', loo_flag)
+
         self._plot_vols()
+
+        if self.verbose:
+            print('Done plotting moving window convex hull volumes.')
         return
 
-    def plot_ecops(self, style, data_type):
+    def plot_ecops(self):
+
+        '''Plot empirical copulas of each dimension of the data array
+        against the other.
+        '''
 
         assert self._in_vrfd_flag
 
-        assert isinstance(style, str)
-        assert style in self._poss_ans_stls
+        if self.verbose:
+            print('Plotting empirical copulas of individual dimensions of '
+                  'the input timeseries...')
 
         poss_data_types = ['window', 'full']
 
-        assert isinstance(data_type, str)
-        assert data_type in poss_data_types
+        h5_hdl = h5py.File(str(self._h5_path), mode='r')  # close it later
+        bd_pts_gr = h5_hdl['bd_pts']
 
-        assert self._in_vrfd_flag
+        emp_cop_out_dir = self._out_dir / 'empirical_copulas'
+        emp_cop_out_dir.mkdir(exist_ok=True)
+
+        for style in self._poss_ans_stls:
+            for poss_data_type in poss_data_types:
+
+                if style not in bd_pts_gr:
+                    continue
+
+                self._plot_ecops(
+                    style, poss_data_type, bd_pts_gr, emp_cop_out_dir)
+
+        if self.verbose:
+            print('Done plotting empirical copulas of individual '
+                  'dimensions of the input timeseries.')
+
+        return
+
+    def _plot_ecops(self, style, data_type, bd_pts_gr, emp_cop_out_dir):
+
+        assert isinstance(style, str)
+        assert isinstance(data_type, str)
 
         probs_arr = np.empty(
             (self._n_data_pts, self._ans_dims), dtype=np.float64, order='c')
@@ -214,12 +340,6 @@ class AppearDisappearPlot:
         Total steps: %d
         %d chull points
         '''
-
-        emp_cop_out_dir = self._out_dir / 'empirical_copulas'
-        emp_cop_out_dir.mkdir(exist_ok=True)
-
-        h5_hdl = h5py.File(str(self._h5_path), mode='r')  # close it later
-        bd_pts_gr = h5_hdl['bd_pts']
 
         for i in range(self._ans_dims):
             probs_arr_i = probs_arr[:, i]
@@ -303,7 +423,6 @@ class AppearDisappearPlot:
                 plt.clf()
 
         plt.close()
-        h5_hdl.close()
         return
 
     def _bef_plot(self):

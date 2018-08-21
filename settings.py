@@ -158,7 +158,7 @@ class AppearDisappearSettings:
         self._out_dir = out_dir
 
         if self.verbose:
-            print('Set outputs directory to:', str(out_dir))
+            print('Set analysis outputs directory to:', str(out_dir))
 
         self._out_dir_set_flag = True
         return
@@ -249,7 +249,7 @@ class AppearDisappearSettings:
                 'peel_depth should be greater than zero!')
 
         if self.verbose:
-            print('All analysis parameters verified to be correct.')
+            print('All settings parameters verified to be correct.')
 
         self._in_vrfd_flag = True
         return
