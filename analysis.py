@@ -528,7 +528,13 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             return
 
         if self._orth_vecs_flag:
+            if self.verbose:
+                print('Finding least correlated vectors...')
+
             self.generate_vector_indicies_set()
+
+            if self.verbose:
+                print('Done finding least correlated vectors.')
 
             sel_idxs = self.get_final_vector_indicies().tolist()
 

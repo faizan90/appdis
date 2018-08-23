@@ -316,47 +316,6 @@ class AppearDisappearPlot:
 
         assert hasattr(self, '_sars'), 'sel_ortho_vecs_flag was off!'
 
-        # optimization
-        _, obj_ax = plt.subplots(figsize=(20, 10))
-        acc_ax = obj_ax.twinx()
-
-        plt.suptitle(
-            f'Simulated annealing results for least correlated '
-            f'vectors\' selection ({self._ans_dims} dimensions)')
-
-        a1 = acc_ax.plot(
-            self._sars,
-            color='gray',
-            alpha=0.5,
-            label='acc_rate')
-        p1 = obj_ax.plot(
-            self._siovs,
-            color='red',
-            alpha=0.5,
-            label='i_obj_val')
-
-        p2 = obj_ax.plot(
-            self._smovs,
-            color='darkblue',
-            alpha=0.5,
-            label='min_obj_val')
-
-        obj_ax.set_xlabel('Iteration No. (-)')
-        obj_ax.set_ylabel('Objective function value (-)')
-        acc_ax.set_ylabel('Acceptance rate (-)')
-
-        obj_ax.grid()
-
-        ps = p1 + p2 + a1
-        lg_labs = [l.get_label() for l in ps]
-
-        obj_ax.legend(ps, lg_labs, framealpha=0.5)
-
-        plt.savefig(
-            str(self._out_dir / 'sim_anneal.png'),
-            bbox_inches='tight')
-        plt.close()
-
         # correlation matrix
         plt.figure(figsize=(10, 10))
         plt.imshow(
@@ -389,6 +348,49 @@ class AppearDisappearPlot:
             str(self._out_dir / 'correlations.png'),
             bbox_inches='tight')
         plt.close()
+
+        # optimization
+
+        if self._n_data_dims != self._ans_dims:
+            _, obj_ax = plt.subplots(figsize=(20, 10))
+            acc_ax = obj_ax.twinx()
+
+            plt.suptitle(
+                f'Simulated annealing results for least correlated '
+                f'vectors\' selection ({self._ans_dims} dimensions)')
+
+            a1 = acc_ax.plot(
+                self._sars,
+                color='gray',
+                alpha=0.5,
+                label='acc_rate')
+            p1 = obj_ax.plot(
+                self._siovs,
+                color='red',
+                alpha=0.5,
+                label='i_obj_val')
+
+            p2 = obj_ax.plot(
+                self._smovs,
+                color='darkblue',
+                alpha=0.5,
+                label='min_obj_val')
+
+            obj_ax.set_xlabel('Iteration No. (-)')
+            obj_ax.set_ylabel('Objective function value (-)')
+            acc_ax.set_ylabel('Acceptance rate (-)')
+
+            obj_ax.grid()
+
+            ps = p1 + p2 + a1
+            lg_labs = [l.get_label() for l in ps]
+
+            obj_ax.legend(ps, lg_labs, framealpha=0.5)
+
+            plt.savefig(
+                str(self._out_dir / 'sim_anneal.png'),
+                bbox_inches='tight')
+            plt.close()
         return
 
     def _plot_ecops(self, style, data_type, bd_pts_gr, emp_cop_out_dir):

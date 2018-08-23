@@ -140,6 +140,10 @@ class AppearDisappearVectorSelection(ADDA):
         i = 0
         ctp = self._iat
 
+        if self._ans_dims == self._irng.shape[0]:
+            # no need to optimize
+            i = self._mis
+
         while (i < self._mis) and (cwoci < self._mwocis):
 
             if ci > self._uaein:
@@ -150,8 +154,14 @@ class AppearDisappearVectorSelection(ADDA):
 
             new_idx = np.random.choice(self._irng, size=1, replace=False)[0]
 
+            ctr = 0
             while (old_idx == new_idx) or (new_idx in old_sel_idxs):
                 new_idx = np.random.choice(self._irng, size=1, replace=False)[0]
+
+                if ctr > 100:
+                    raise RuntimeError('Something is wrong!')
+
+                ctr += 1
 
             new_sel_idxs = old_sel_idxs.copy()
 
