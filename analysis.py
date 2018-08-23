@@ -173,7 +173,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                 'window_size cannot be greater than the number of steps!')
 
         if self.verbose:
-            print('All data inputs verified to be correct for analysis.')
+            print('All analysis inputs verified to be correct.')
 
         self._in_vrfd_flag = True
         return
@@ -294,7 +294,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                     else:
                         args = [ris, tis, rpis, cd_arr]
 
-                self._pld_upld_rats(refr, test, refr_pld, i, j, *args)
+                    self._pld_upld_rats(refr, test, refr_pld, i, j, *args)
 
                 if self._fh_flag == 2:
                     self._ut_hdf5()

@@ -48,19 +48,19 @@ def main():
     n_boots = 2
     hdf_flush_flag = 0
     vol_data_lev = 1
-    loo_flag = True
+    loo_flag = False
 
     sel_idxs_flag = False
     ann_flag = False
     plot_flag = False
 
     sel_idxs_flag = True
-    ann_flag = True
-    plot_flag = True
+#     ann_flag = True
+#     plot_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_sel_idxs')
+               f'{peel_depth}_pldt_sel_idxs_test')
 
     print('out_dir:', out_dir)
 
@@ -68,8 +68,8 @@ def main():
 
     with open(in_var_file, 'rb') as _hdl:
         in_var_dict = pickle.load(_hdl)
-        tot_in_var_arr = in_var_dict['pcs_arr']  # [:4100]
-        time_idx = in_var_dict['anomaly_var_df'].index  # [:4100]
+        tot_in_var_arr = in_var_dict['anomaly_var_df'].values.copy('c')
+        time_idx = in_var_dict['anomaly_var_df'].index
 #         eig_val_cum_sums = in_var_dict['eig_val_cum_sums']
 
     if sel_idxs_flag:
@@ -83,6 +83,7 @@ def main():
             20000,
             1000)
 
+#         ad_vs.set_outputs_directory(out_dir)
         ad_vs.verify()
         ad_vs.generate_vector_indicies_set()
         idxs = ad_vs.get_final_vector_indicies()

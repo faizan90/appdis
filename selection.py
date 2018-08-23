@@ -3,6 +3,7 @@ Created on Aug 22, 2018
 
 @author: Faizan-Uni
 '''
+from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,8 +36,6 @@ class AppearDisappearVectorSelection:
         self.verbose = verbose
         self.copy_input = copy_input
         self._mtbl_flag = mutability
-
-        self._poss_t_idx_types = ['time', 'range']
 
         self._data_arr_set_flag = False
         self._opt_prms_set_flag = False
@@ -79,17 +78,23 @@ class AppearDisappearVectorSelection:
         self._n_data_pts = data_arr.shape[0]
         self._n_data_dims = data_arr.shape[1]
 
+        if self.verbose:
+            print(f'Vector selection data array set with {self._n_data_pts} '
+                  f'rows and {self._n_data_dims} columns.')
+
+        self._data_arr_set_flag = True
+        return
+
+    def _bef_opt(self):
+
+        assert self._in_vrfd_flag
+
         self._acorr_arr = np.abs(np.corrcoef(self._data_arr.T))
 
         self._acorr_arr.flags.writeable = self._mtbl_flag
 
         self._irng = np.arange(self._n_data_dims)
 
-        if self.verbose:
-            print(f'Vector selection data array set with {self._n_data_pts} '
-                  f'rows and {self._n_data_dims} columns.')
-
-        self._data_arr_set_flag = True
         return
 
     def set_optimization_parameters(
@@ -145,11 +150,9 @@ class AppearDisappearVectorSelection:
         self._in_vrfd_flag = True
         return
 
-    def _get_obj_ftn_val(self, corrs_arr):  #
-
-        return corrs_arr.sum()
-
     def generate_vector_indicies_set(self):
+
+        self._bef_opt()
 
         assert self._in_vrfd_flag
 
@@ -159,6 +162,11 @@ class AppearDisappearVectorSelection:
         old_corr_arr = self._acorr_arr[old_sel_idxs][:, old_sel_idxs].copy()
 
         old_obj_val = self._get_obj_ftn_val(old_corr_arr)
+
+        i_obj_vals = []
+        acc_vals = 0
+        acc_rates = []
+        min_obj_vals = []
 
         ci = 0
         cwoci = 0
@@ -206,8 +214,14 @@ class AppearDisappearVectorSelection:
 
                 cwoci = 0
 
+                acc_vals += 1
+
             else:
                 cwoci += 1
+
+            i_obj_vals.append(new_obj_val)
+            min_obj_vals.append(old_obj_val)
+            acc_rates.append(acc_vals / (i + 1))
 
             ci += 1
             i = i + 1
@@ -225,6 +239,51 @@ class AppearDisappearVectorSelection:
             print('Final correlation array:')
             print(self._fca)
 
+#         if True:
+#             self._sa_i_obj_vals = np.array(i_obj_vals)
+#             self._sa_min_obj_vals = np.array(min_obj_vals)
+#             self._sa_acc_rates = np.array(acc_rates)
+#
+#             _, obj_ax = plt.subplots(figsize=(20, 10))
+#             acc_ax = obj_ax.twinx()
+#
+#             plt.suptitle(
+#                 f'Simulated annealing results for uncorrelated '
+#                 f'vectors\' selection ({self._ans_dims} dimensions)')
+#
+#             a1 = acc_ax.plot(
+#                 acc_rates,
+#                 color='gray',
+#                 alpha=0.5,
+#                 label='acc_rate')
+#             p1 = obj_ax.plot(
+#                 i_obj_vals,
+#                 color='red',
+#                 alpha=0.5,
+#                 label='i_obj_val')
+#
+#             p2 = obj_ax.plot(
+#                 min_obj_vals,
+#                 color='darkblue',
+#                 alpha=0.5,
+#                 label='min_obj_val')
+#
+#             obj_ax.set_xlabel('Iteration No. (-)')
+#             obj_ax.set_ylabel('Objective function value (-)')
+#             acc_ax.set_ylabel('Acceptance rate (-)')
+#
+#             obj_ax.grid()
+#
+#             ps = p1 + p2 + a1
+#             lg_labs = [l.get_label() for l in ps]
+#
+#             obj_ax.legend(ps, lg_labs, framealpha=0.5)
+#
+#             plt.savefig(
+#                 str(self._out_dir / 'sim_anneal.png'),
+#                 bbox_inches='tight')
+#             plt.close()
+
         self._gened_idxs_flag = True
         return
 
@@ -237,3 +296,9 @@ class AppearDisappearVectorSelection:
 
         assert self._gened_idxs_flag
         return self._fca
+
+    def _get_obj_ftn_val(self, corrs_arr):  #
+
+        return corrs_arr.sum()
+
+    __verify = verify
