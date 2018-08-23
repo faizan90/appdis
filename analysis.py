@@ -21,7 +21,8 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
     Using Tukey's depth function and dividing the time series data into
     windows (N events per window), this class computes ratios of events
-    that have appeared or disappeared for any two given event windows.
+    that have appeared or disappeared for any two given event windows with
+    respect to the test window.
 
     The time window can be a set of consecutive years or months. Events in
     test window are checked for containment inside the reference window.
@@ -41,7 +42,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
     window. This is the main output of this analysis. Based on the
     specified parameters, other outputs are also computed.
 
-    See the entire documentation for more information.
+    Read the entire documentation for more information.
     '''
 
     def __init__(self, verbose=True, copy_input=False, mutability=False):
@@ -192,7 +193,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         cd_arr = self._data_arr[:, :self._ans_dims]
 
-        # computations for _ans_stl == 'un_peel' are kept here. The rest are
+        # computations for un peeled case are kept here. The rest are
         # passed to other functions to avoid a long loop and too much white
         # space.
 
@@ -258,30 +259,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                     continue
 
                 if i == j:
-                    self._upld[i, i] = 0
-
-                    if pl_flg:
-                        self._pld[i, i] = 0
-
-                        if self._ans_stl == 'alt_peel':
-                            self._pld_upld[i, i] = 0
-                            self._upld_pld[i, i] = 0
-
-                    if self._bs_flag:
-                        self._upld_bs_ul[i, i] = 0
-                        self._upld_bs_ll[i, i] = 0
-
-                        if pl_flg:
-                            self._pld_bs_ul[i, i] = 0
-                            self._pld_bs_ll[i, i] = 0
-
-                            if self._ans_stl == 'alt_peel':
-                                self._pld_upld_bs_ul[i, i] = 0
-                                self._pld_upld_bs_ll[i, i] = 0
-
-                                self._upld_pld_bs_ul[i, i] = 0
-                                self._upld_pld_bs_ll[i, i] = 0
-
+                    self._set_to_zero(i, pl_flg)
                     continue
 
                 tis = (self._mwr >= j) & (self._mwr < (j + self._ws))
@@ -311,24 +289,17 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
                 if pl_flg:
                     if not self._bs_flag:
-                        self._pld_upld_rats(refr, test, refr_pld, i, j)
+                        args = []
 
                     else:
-                        self._pld_upld_rats(
-                            refr,
-                            test,
-                            refr_pld,
-                            i,
-                            j,
-                            ris,
-                            tis,
-                            rpis,
-                            cd_arr)
+                        args = [ris, tis, rpis, cd_arr]
+
+                self._pld_upld_rats(refr, test, refr_pld, i, j, *args)
 
                 if self._fh_flag == 2:
                     self._ut_hdf5()
 
-                # after the update call because it could have broken
+                # after the _ut_hdf5 call because it could have broken
                 # during updating
                 self._dn_flg[i, j] = True
 
@@ -359,7 +330,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         path = Path(path).resolve()
 
         assert path.exists(), 'Input file not found!'
-        assert path.is_file(), 'Input is not file!'
+        assert path.is_file(), 'Input is not a file!'
 
         self._h5_hdl = h5py.File(str(path), driver='core', mode='a')
 
@@ -407,6 +378,11 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         if self.verbose:
             print('Loaded data from HDF5.')
+            not_cmptd_idxs = (np.isnan(self._upld.ravel())).sum()
+            tot_idxs = self._upld.ravel().shape[0]
+            print(f'{not_cmptd_idxs} steps out of {tot_idxs} to go!')
+
+        self.cmpt_appear_disappear()
         return
 
     def terminate_analysis(self):
@@ -605,7 +581,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
     def _init_hdf5_ds(self):
 
-        '''Initialize the ouputs HDF5 file and write the approriate
+        '''Initialize the outputs HDF5 file and write the appropriate
         variables to it.
         '''
 
@@ -673,6 +649,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             self._ut_hdf5()
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
             self._save_boundary_point_idxs('peel', 'full')
             self._save_boundary_point_idxs('peel', 'window')
 
@@ -894,7 +871,6 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             self._fill_get_rat_bs(
                 refr_bs, test_bs, idx_i, idx_j, farr_ul, farr_ll, farr_flgs)
             bs_ctr += 1
-
         return
 
     def _save_boundary_point_idxs(self, style, data_type):
@@ -912,16 +888,16 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         if not self._hdf5_flag:
             return
 
-        gname = 'bd_pts'
+        grp_name = 'bd_pts'
 
         _td = pd.Timedelta('1s')
         _min_t = pd.Timestamp("1970-01-01")
 
-        if gname not in self._h5_hdl:
-            bd_pts_gr = self._h5_hdl.create_group(gname)
+        if grp_name not in self._h5_hdl:
+            bd_pts_gr = self._h5_hdl.create_group(grp_name)
 
         else:
-            bd_pts_gr = self._h5_hdl[gname]
+            bd_pts_gr = self._h5_hdl[grp_name]
 
         if data_type == 'window':
             if style == 'un_peel':
@@ -1011,3 +987,29 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             upld_chull_time_idxs,
             pld_chull_idxs,
             pld_chull_time_idxs)
+
+    def _set_to_zero(self, i, pl_flg):
+        self._upld[i, i] = 0
+
+        if pl_flg:
+            self._pld[i, i] = 0
+
+            if self._ans_stl == 'alt_peel':
+                self._pld_upld[i, i] = 0
+                self._upld_pld[i, i] = 0
+
+        if self._bs_flag:
+            self._upld_bs_ul[i, i] = 0
+            self._upld_bs_ll[i, i] = 0
+
+            if pl_flg:
+                self._pld_bs_ul[i, i] = 0
+                self._pld_bs_ll[i, i] = 0
+
+                if self._ans_stl == 'alt_peel':
+                    self._pld_upld_bs_ul[i, i] = 0
+                    self._pld_upld_bs_ll[i, i] = 0
+
+                    self._upld_pld_bs_ul[i, i] = 0
+                    self._upld_pld_bs_ll[i, i] = 0
+        return

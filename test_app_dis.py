@@ -9,9 +9,24 @@ import time
 import pickle
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 from appdis import (
     AppearDisappearAnalysis,
-    AppearDisappearPlot)
+    AppearDisappearPlot,
+    AppearDisappearVectorSelection)
+
+np.set_printoptions(
+    precision=3,
+    threshold=2000,
+    linewidth=200000,
+    formatter={'float': '{:0.3f}'.format})
+
+pd.options.display.precision = 3
+pd.options.display.max_rows = 100
+pd.options.display.max_columns = 100
+pd.options.display.width = 250
 
 
 def main():
@@ -35,15 +50,17 @@ def main():
     vol_data_lev = 1
     loo_flag = True
 
+    sel_idxs_flag = False
     ann_flag = False
     plot_flag = False
 
+    sel_idxs_flag = True
     ann_flag = True
     plot_flag = True
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt')
+               f'{peel_depth}_pldt_sel_idxs')
 
     print('out_dir:', out_dir)
 
@@ -54,6 +71,22 @@ def main():
         tot_in_var_arr = in_var_dict['pcs_arr']  # [:4100]
         time_idx = in_var_dict['anomaly_var_df'].index  # [:4100]
 #         eig_val_cum_sums = in_var_dict['eig_val_cum_sums']
+
+    if sel_idxs_flag:
+        ad_vs = AppearDisappearVectorSelection()
+        ad_vs.set_data_array(tot_in_var_arr)
+        ad_vs.set_optimization_parameters(
+            n_dims,
+            1.0,
+            0.95,
+            150,
+            20000,
+            1000)
+
+        ad_vs.verify()
+        ad_vs.generate_vector_indicies_set()
+        idxs = ad_vs.get_final_vector_indicies()
+        tot_in_var_arr = tot_in_var_arr[:, idxs].copy('c')
 
     if ann_flag:
         ad_ans = AppearDisappearAnalysis()
@@ -97,7 +130,7 @@ def main():
 
 
 if __name__ == '__main__':
-    _save_log_ = False
+    _save_log_ = True
     if _save_log_:
         from datetime import datetime
         from std_logger import StdFileLoggerCtrl

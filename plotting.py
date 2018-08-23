@@ -559,6 +559,8 @@ class AppearDisappearPlot:
             out_fig_name,
             arr_lab):
 
+        '''Plot the appearing disappearing cases'''
+
         assert self._bef_plot_vars_set
 
         rats_arr = np.ma.masked_invalid(rats_arr)
@@ -742,6 +744,9 @@ class AppearDisappearPlot:
 
     def _plot_bs(self):
 
+        '''Plot appearing disappearing cases along with bootstrapping
+        results'''
+
         self._plot_bs_case(
             self._upld,
             self._upld_bs_ul,
@@ -778,6 +783,8 @@ class AppearDisappearPlot:
 
     @staticmethod
     def _get_vols(step_idxs, args):
+
+        '''Get volume of moving window convex hulls'''
 
         mp_cond, lab_cond, dims, loo_flag = args[:4]
 
@@ -895,6 +902,9 @@ class AppearDisappearPlot:
                 loo_vols.append(res[2])
                 n_chull_cts.append(res[3])
                 chull_idxs.append(res[4])
+
+            res = None
+            ress = None
 
             labs = np.concatenate(labs)
             vols = np.concatenate(vols)
@@ -1117,7 +1127,7 @@ class AppearDisappearPlot:
 
         # time series of bd points
         plt.figure(bd_pt_fig.number)
-        ttl_lab = 'Boundary points time series'
+        ttl_lab = 'Boundary points\' time series'
 
         plt.title(ttl % ttl_lab, fontdict={'ha': 'right'}, loc='right')
 
