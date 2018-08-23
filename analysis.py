@@ -11,11 +11,11 @@ from monthdelta import monthmod
 
 from depth_funcs import depth_ftn_mp as dftn
 
-from .data import AppearDisappearData as ADDA
+from .selection import AppearDisappearVectorSelection as ADVS
 from .settings import AppearDisappearSettings as ADSS
 
 
-class AppearDisappearAnalysis(ADDA, ADSS):
+class AppearDisappearAnalysis(ADVS, ADSS):
 
     '''Perform the appearing and disappearing events analysis
 
@@ -47,7 +47,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
     def __init__(self, verbose=True, copy_input=False, mutability=False):
 
-        ADDA.__init__(self, verbose, copy_input, mutability)
+        ADVS.__init__(self, verbose, copy_input, mutability)
         ADSS.__init__(self, verbose)
 
         self._h5_hdl = None
@@ -78,6 +78,21 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             '_hdf5_flag',
             '_fh_flag',
             '_vdl',
+            )
+
+        self._opt_vars_labs = (
+            '_acorr_arr',
+            '_irng',
+            '_iat',
+            '_tra',
+            '_uaein',
+            '_mis',
+            '_mwocis',
+            '_fidxs',
+            '_fca',
+            '_siovs',
+            '_smovs',
+            '_sars',
             )
 
         self._inter_vars_labs = (
@@ -118,6 +133,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         self._h5_ds_names = (
             'in_data',
             'settings',
+            'vec_opt_vars',
             'inter_vars',
             'app_dis_arrs',
             'dts_vars',
@@ -127,6 +143,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         self._var_labs_list = (
             self._data_vars_labs,
             self._sett_vars_labs,
+            self._opt_vars_labs,
             self._inter_vars_labs,
             self._app_dis_vars_labs,
             self._dts_vars_labs,
@@ -135,7 +152,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         self._rsm_hdf5_flag = False
 
-        self._in_vrfd_flag = False
+        self._ann_vrfd_flag = False
         self._mw_rng_cmptd_flag = False
         self._app_dis_done_flag = False
         return
@@ -151,8 +168,10 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         '''
 
         if not self._rsm_hdf5_flag:
-            ADDA._AppearDisappearData__verify(self)
+            ADVS._AppearDisappearVectorSelection__verify(self)
             ADSS._AppearDisappearSettings__verify(self)
+
+            assert self._ans_dims <= self._n_data_dims
 
             if self._t_idx_t == 'time':
                 assert (self._twt == 'month') or (self._twt == 'year'), (
@@ -175,7 +194,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         if self.verbose:
             print('All analysis inputs verified to be correct.')
 
-        self._in_vrfd_flag = True
+        self._ann_vrfd_flag = True
         return
 
     def cmpt_appear_disappear(self):
@@ -184,7 +203,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         self._bef_app_dis()
 
-        assert self._in_vrfd_flag, 'Call verify first!'
+        assert self._ann_vrfd_flag, 'Call verify first!'
 
         if self.verbose:
             print('Computing appearing and disappearing cases...')
@@ -503,10 +522,30 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         '''Initiate all required variables before analysis'''
 
-        assert self._in_vrfd_flag, 'Call verify first!'
+        assert self._ann_vrfd_flag, 'Call verify first!'
 
         if self._rsm_hdf5_flag:
             return
+
+        if self._orth_vecs_flag:
+            self.generate_vector_indicies_set()
+
+            sel_idxs = self.get_final_vector_indicies().tolist()
+
+            not_sel_idxs = []
+            for i in range(self._n_data_dims):
+                if i in sel_idxs:
+                    continue
+
+                not_sel_idxs.append(i)
+
+            fin_idxs = sel_idxs + not_sel_idxs
+
+            assert len(fin_idxs) == self._n_data_dims
+            assert np.unique(fin_idxs).shape[0] == self._n_data_dims
+
+            self._data_arr = self._data_arr[:, fin_idxs].copy('c')
+            self._data_arr.flags.writeable = self._mtbl_flag
 
         self._cmpt_mw_rng()
         assert self._mw_rng_cmptd_flag, 'Moving window range not computed!'
@@ -590,7 +629,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             str(self._h5_path), mode='w', driver='core')
 
         # sequence matters
-        h5_dss_list = list(self._h5_ds_names[:4])
+        h5_dss_list = list(self._h5_ds_names[:5])
 
         if self._vdl:
             h5_dss_list.append('dts_vars')
@@ -617,7 +656,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
                 if isinstance(var, np.ndarray):
                     dss[lab] = var
 
-                elif isinstance(var, (str, int)):
+                elif isinstance(var, (str, int, float)):
                     dss.attrs[lab] = var
 
                 elif isinstance(var, Path):
@@ -673,8 +712,8 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             exec(f'rds[\'{rd}\'][...] = self.{rd}')
 
         if self._vdl:
-
             vds = self._h5_hdl['dts_vars']
+
             for vd in vds.keys():
                 exec(f'vds[\'{vd}\'][...] = self.{vd}')
 
@@ -875,7 +914,7 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
     def _save_boundary_point_idxs(self, style, data_type):
 
-        assert self._in_vrfd_flag
+        assert self._ann_vrfd_flag
 
         assert isinstance(style, str)
         assert style in self._poss_ans_stls
@@ -924,8 +963,9 @@ class AppearDisappearAnalysis(ADDA, ADSS):
             bd_pts_gr[f'un_peel/{data_type}/idxs'] = res[0]
             bd_pts_gr[f'un_peel/{data_type}/time'] = (res[1] - _min_t) // _td
 
-            bd_pts_gr[f'peel/{data_type}/idxs'] = res[2]
-            bd_pts_gr[f'peel/{data_type}/time'] = (res[3] - _min_t) // _td
+            if style == 'peel':
+                bd_pts_gr[f'peel/{data_type}/idxs'] = res[2]
+                bd_pts_gr[f'peel/{data_type}/time'] = (res[3] - _min_t) // _td
 
         else:
             raise NotImplementedError
@@ -938,13 +978,15 @@ class AppearDisappearAnalysis(ADDA, ADSS):
         chull_idxs = []
         idxs_rng = np.arange(self._mwi)
 
+        dth = max(1, self._pl_dth)  # at zero there are no bd_pts
+
         for i in idxs_rng:
             ct = dts_arr['cts'][i]
 
             dts = dts_arr['dts'][i, :ct]
             idxs = dts_arr['idx'][i, :ct]
 
-            bd_idxs = idxs[dts <= self._pl_dth]
+            bd_idxs = idxs[dts <= dth]
 
             chull_idxs.append(bd_idxs)
 
@@ -964,11 +1006,12 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
         refr_refr_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
 
-        upld_chull_idxs = refr_refr_dts <= self._pl_dth
+        dth = max(1, self._pl_dth)  # at zero there are no bd_pts
+
+        upld_chull_idxs = refr_refr_dts <= dth
         upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
 
-        pld_chull_idxs = np.array([], dtype=np.int64, order='c')
-        pld_chull_time_idxs = pd.DatetimeIndex([])
+        ret = [upld_chull_idxs, upld_chull_time_idxs, ]
 
         if style == 'peel':
             refr_pld = cd_arr[~upld_chull_idxs].copy('c')
@@ -978,15 +1021,13 @@ class AppearDisappearAnalysis(ADDA, ADSS):
 
             pld_chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
             pld_chull_idxs[~upld_chull_idxs] = (
-                refr_refr_pld_dts <= self._pl_dth)
+                refr_refr_pld_dts <= dth)
 
             pld_chull_time_idxs = self._t_idx[pld_chull_idxs]
 
-        return (
-            upld_chull_idxs,
-            upld_chull_time_idxs,
-            pld_chull_idxs,
-            pld_chull_time_idxs)
+            ret += [pld_chull_idxs, pld_chull_time_idxs]
+
+        return ret
 
     def _set_to_zero(self, i, pl_flg):
         self._upld[i, i] = 0

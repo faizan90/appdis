@@ -3,117 +3,72 @@ Created on Aug 22, 2018
 
 @author: Faizan-Uni
 '''
-from pathlib import Path
-
 import numpy as np
-import matplotlib.pyplot as plt
 
-plt.ioff()
+from .data import AppearDisappearData as ADDA
 
 
-class AppearDisappearVectorSelection:
+class AppearDisappearVectorSelection(ADDA):
 
     def __init__(
             self, verbose=True, copy_input=False, mutability=False):
 
-        '''
-        Parameters
-        ----------
-        verbose : bool
-            Print activity messages if True.
-        copy_input : bool
-            Make copies of input data if True. This will result in more
-            memory consumption.
-        mutability : bool
-            The writable flag of all input arrays. If False arrays become
-            read-only. This applies regardless of the value of copy_input.
-        '''
+        ADDA.__init__(self, verbose, copy_input, mutability)
 
-        assert isinstance(verbose, bool)
-        assert isinstance(copy_input, bool)
-        assert isinstance(mutability, bool)
-
-        self.verbose = verbose
-        self.copy_input = copy_input
-        self._mtbl_flag = mutability
-
-        self._data_arr_set_flag = False
         self._opt_prms_set_flag = False
         self._gened_idxs_flag = False
-        self._in_vrfd_flag = False
-        return
-
-    def set_data_array(self, data_arr):
-
-        '''Set the time series data array for the appearing and disappearing
-        events' analysis.
-
-        Parameters
-        ----------
-        data_arr : 2D float64 np.ndarray
-            Rows represent timesteps while columns represent variables.
-            Only finite values are allowed. Number of rows and columns
-            should be greater than zero.
-        '''
-
-        assert isinstance(data_arr, np.ndarray), 'data_arr not a numpy array!'
-        assert data_arr.ndim == 2, 'data_arr can be 2D only!'
-        assert data_arr.shape[0] > 0, 'Rows should be greater than zero!'
-        assert data_arr.shape[1] > 0, 'Columns should be greater than zero!'
-        assert np.all(np.isfinite(data_arr)), 'Invalid values in data_arr!'
-
-        if not self.copy_input:
-            assert data_arr.flags.c_contiguous, 'data_arr not c_contiguous!'
-            assert data_arr.dtype.type is np.float64, (
-                'data_arr dtype is not np.float64!')
-
-        if self.copy_input:
-            self._data_arr = np.array(data_arr, dtype=np.float64, order='c')
-
-        else:
-            self._data_arr = data_arr
-
-        self._data_arr.flags.writeable = self._mtbl_flag
-
-        self._n_data_pts = data_arr.shape[0]
-        self._n_data_dims = data_arr.shape[1]
-
-        if self.verbose:
-            print(f'Vector selection data array set with {self._n_data_pts} '
-                  f'rows and {self._n_data_dims} columns.')
-
-        self._data_arr_set_flag = True
+        self._opt_vrfd_flag = False
         return
 
     def _bef_opt(self):
 
-        assert self._in_vrfd_flag
+        '''Prepare variables required by the optimization.
+
+        This is a base class.
+        '''
+
+        assert self._opt_vrfd_flag, 'Optimization inputs unverified!'
 
         self._acorr_arr = np.abs(np.corrcoef(self._data_arr.T))
 
         self._acorr_arr.flags.writeable = self._mtbl_flag
 
         self._irng = np.arange(self._n_data_dims)
-
         return
 
     def set_optimization_parameters(
             self,
-            number_of_indicies_to_optimize,
             initial_annealing_temperature,
             temperature_reduction_alpha,
             update_at_every_iteration_no,
             maximum_iterations,
             maximum_without_change_iterations):
 
-        assert isinstance(number_of_indicies_to_optimize, int)
+        '''Set optimization parameters for simulated annealing.
+
+        Parameters
+        ----------
+        initial_annealing_temperature : float
+            Is what it says.
+        temperature_reduction_alpha : float
+            The ratio by which to reduce the annealing temperature after
+            update_at_every_iteration_no number of iteration. It has to be
+            between 0 and 1 (both exclusive).
+        update_at_every_iteration_no : int
+            After how many iteration shall the annealing temperature be
+            reduced.
+        maximum_iterations : int
+            Maximum number of iterations in simulated annealing.
+        maximum_without_change_iterations : int
+            Terminate the optimization if a better combination is not found
+            after maximum_without_change_iterations iterations.
+        '''
+
         assert isinstance(initial_annealing_temperature, float)
         assert isinstance(temperature_reduction_alpha, float)
         assert isinstance(update_at_every_iteration_no, int)
         assert isinstance(maximum_iterations, int)
         assert isinstance(maximum_without_change_iterations, int)
-
-        assert number_of_indicies_to_optimize >= 2
 
         assert initial_annealing_temperature > 0
         assert np.isfinite(initial_annealing_temperature)
@@ -130,7 +85,6 @@ class AppearDisappearVectorSelection:
             update_at_every_iteration_no)
         assert maximum_without_change_iterations <= maximum_iterations
 
-        self._ans_dims = number_of_indicies_to_optimize
         self._iat = initial_annealing_temperature
         self._tra = temperature_reduction_alpha
         self._uaein = update_at_every_iteration_no
@@ -142,19 +96,32 @@ class AppearDisappearVectorSelection:
 
     def verify(self):
 
-        assert self._data_arr_set_flag
-        assert self._opt_prms_set_flag
+        '''Verify that all the inputs are correct.
 
-        assert self._ans_dims <= self._n_data_dims
+        NOTE:
+        -----
+            These are just some additional checks. This function should
+            always be called after all the inputs are set and ready.
+        '''
 
-        self._in_vrfd_flag = True
+        ADDA._AppearDisappearData__verify(self)
+
+        assert self._opt_prms_set_flag, 'Optimization parameters not set!'
+
+        self._opt_vrfd_flag = True
         return
 
     def generate_vector_indicies_set(self):
 
+        '''Find the indicies of vectors in data array such that the sum of
+        correlation among all of them is minimum of all the other possible
+        combinations. The number of vectors considered at any given iteration
+        is equal to the dimensions of the unit vectors.
+        '''
+
         self._bef_opt()
 
-        assert self._in_vrfd_flag
+        assert self._opt_vrfd_flag, 'Optimization inputs unverified!'
 
         old_sel_idxs = np.random.choice(
             self._irng, size=self._ans_dims, replace=False)
@@ -227,7 +194,8 @@ class AppearDisappearVectorSelection:
             i = i + 1
 
         assert np.all(np.isclose(
-            old_corr_arr, self._acorr_arr[old_sel_idxs][:, old_sel_idxs]))
+            old_corr_arr, self._acorr_arr[old_sel_idxs][:, old_sel_idxs])), (
+                'This should not happen!')
 
         self._fidxs = np.sort(old_sel_idxs)
         self._fca = self._acorr_arr[self._fidxs][:, self._fidxs]
@@ -239,62 +207,23 @@ class AppearDisappearVectorSelection:
             print('Final correlation array:')
             print(self._fca)
 
-#         if True:
-#             self._sa_i_obj_vals = np.array(i_obj_vals)
-#             self._sa_min_obj_vals = np.array(min_obj_vals)
-#             self._sa_acc_rates = np.array(acc_rates)
-#
-#             _, obj_ax = plt.subplots(figsize=(20, 10))
-#             acc_ax = obj_ax.twinx()
-#
-#             plt.suptitle(
-#                 f'Simulated annealing results for uncorrelated '
-#                 f'vectors\' selection ({self._ans_dims} dimensions)')
-#
-#             a1 = acc_ax.plot(
-#                 acc_rates,
-#                 color='gray',
-#                 alpha=0.5,
-#                 label='acc_rate')
-#             p1 = obj_ax.plot(
-#                 i_obj_vals,
-#                 color='red',
-#                 alpha=0.5,
-#                 label='i_obj_val')
-#
-#             p2 = obj_ax.plot(
-#                 min_obj_vals,
-#                 color='darkblue',
-#                 alpha=0.5,
-#                 label='min_obj_val')
-#
-#             obj_ax.set_xlabel('Iteration No. (-)')
-#             obj_ax.set_ylabel('Objective function value (-)')
-#             acc_ax.set_ylabel('Acceptance rate (-)')
-#
-#             obj_ax.grid()
-#
-#             ps = p1 + p2 + a1
-#             lg_labs = [l.get_label() for l in ps]
-#
-#             obj_ax.legend(ps, lg_labs, framealpha=0.5)
-#
-#             plt.savefig(
-#                 str(self._out_dir / 'sim_anneal.png'),
-#                 bbox_inches='tight')
-#             plt.close()
+        self._siovs = np.array(i_obj_vals)
+        self._smovs = np.array(min_obj_vals)
+        self._sars = np.array(acc_rates)
 
         self._gened_idxs_flag = True
         return
 
     def get_final_vector_indicies(self):
 
-        assert self._gened_idxs_flag
+        assert self._gened_idxs_flag, (
+            'Call generate_vector_indicies_set first!')
         return self._fidxs
 
     def get_final_correlations_array(self):
 
-        assert self._gened_idxs_flag
+        assert self._gened_idxs_flag, (
+            'Call generate_vector_indicies_set first!')
         return self._fca
 
     def _get_obj_ftn_val(self, corrs_arr):  #

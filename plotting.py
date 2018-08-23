@@ -37,18 +37,13 @@ class AppearDisappearPlot:
 
         adan = AppearDisappearAnalysis()
 
-        self._data_vars_labs = adan._data_vars_labs
-        self._app_dis_vars_labs = adan._app_dis_vars_labs
-        self._dts_vars_labs = adan._dts_vars_labs
-        self._boot_vars_labs = adan._boot_vars_labs
-
         self._h5_ds_names = adan._h5_ds_names
 
         self._var_labs_list = adan._var_labs_list
 
         self._poss_ans_stls = adan._poss_ans_stls
 
-        self.dont_read_vars = (
+        self._dont_read_vars = (
             '_out_dir',  #  it is important to ignore this
             '_dn_flg',
             '_upld_bs_flg',
@@ -59,7 +54,7 @@ class AppearDisappearPlot:
         self._mp_pool = None
         self._n_cpus = None
 
-        self.loo_flag = False
+        self._loo_flag = False
 
         self._h5_path_set_flag = False
         self._out_dir_set_flag = False
@@ -69,7 +64,7 @@ class AppearDisappearPlot:
         self._upld_pltd_flag = False
         self._pld_pltd_flag = False
         self._alt_pltd_flag = False
-        self._in_vrfd_flag = False
+        self._plot_vrfd_flag = False
         return
 
     def set_hdf5(self, path):
@@ -175,7 +170,7 @@ class AppearDisappearPlot:
         if self.verbose:
             print('All plotting inputs verfied to be correct.')
 
-        self._in_vrfd_flag = True
+        self._plot_vrfd_flag = True
         return
 
     def set_n_cpus(self, n_cpus='auto'):
@@ -192,7 +187,7 @@ class AppearDisappearPlot:
             If 'auto' then use one less than the maximum available threads.
         '''
 
-        assert self._in_vrfd_flag
+        assert self._plot_vrfd_flag
 
         if n_cpus != 'auto':
             assert (n_cpus > 0) and np.isfinite(n_cpus)
@@ -260,11 +255,14 @@ class AppearDisappearPlot:
             significantly.
         '''
 
+        assert self._ans_dims <= 6, (
+            'More than 6D volume computation not supported!')
+
         assert isinstance(loo_flag, bool)
 
-        self.loo_flag = loo_flag
+        self._loo_flag = loo_flag
 
-        assert self._in_vrfd_flag
+        assert self._plot_vrfd_flag
 
         if self.verbose:
             print('Plotting moving window convex hull volumes...')
@@ -282,7 +280,7 @@ class AppearDisappearPlot:
         against the other.
         '''
 
-        assert self._in_vrfd_flag
+        assert self._plot_vrfd_flag
 
         if self.verbose:
             print('Plotting empirical copulas of individual dimensions of '
@@ -302,6 +300,9 @@ class AppearDisappearPlot:
                 if style not in bd_pts_gr:
                     continue
 
+                elif poss_data_type not in bd_pts_gr[style]:
+                    continue
+
                 self._plot_ecops(
                     style, poss_data_type, bd_pts_gr, emp_cop_out_dir)
 
@@ -309,6 +310,83 @@ class AppearDisappearPlot:
             print('Done plotting empirical copulas of individual '
                   'dimensions of the input timeseries.')
 
+        return
+
+    def plot_sim_anneal_opt(self):
+
+        assert hasattr(self, '_sars')
+
+        _, obj_ax = plt.subplots(figsize=(20, 10))
+        acc_ax = obj_ax.twinx()
+
+        plt.suptitle(
+            f'Simulated annealing results for least correlated '
+            f'vectors\' selection ({self._ans_dims} dimensions)')
+
+        a1 = acc_ax.plot(
+            self._sars,
+            color='gray',
+            alpha=0.5,
+            label='acc_rate')
+        p1 = obj_ax.plot(
+            self._siovs,
+            color='red',
+            alpha=0.5,
+            label='i_obj_val')
+
+        p2 = obj_ax.plot(
+            self._smovs,
+            color='darkblue',
+            alpha=0.5,
+            label='min_obj_val')
+
+        obj_ax.set_xlabel('Iteration No. (-)')
+        obj_ax.set_ylabel('Objective function value (-)')
+        acc_ax.set_ylabel('Acceptance rate (-)')
+
+        obj_ax.grid()
+
+        ps = p1 + p2 + a1
+        lg_labs = [l.get_label() for l in ps]
+
+        obj_ax.legend(ps, lg_labs, framealpha=0.5)
+
+        plt.savefig(
+            str(self._out_dir / 'sim_anneal.png'),
+            bbox_inches='tight')
+        plt.close()
+
+        plt.figure(figsize=(10, 10))
+        plt.imshow(
+            self._fca,
+            origin='lower',
+            vmin=0,
+            vmax=1,
+            cmap=plt.get_cmap('Blues'))
+
+        for i in range(self._ans_dims):
+            for j in range(self._ans_dims):
+                plt.text(
+                    i,
+                    j,
+                    f'{self._fca[i, j]: 0.4f}',
+                    va='center',
+                    ha='center')
+
+        plt.xticks(np.arange(self._ans_dims), self._fidxs)
+        plt.yticks(np.arange(self._ans_dims), self._fidxs)
+
+        plt.xlabel('Selected index')
+        plt.ylabel('Selected index')
+
+        plt.title('Selected vectors\' abs. correlation matrix')
+
+        plt.colorbar(label='abs. correlation', ticks=np.linspace(0, 1, 6))
+
+        plt.savefig(
+            str(self._out_dir / 'correlations.png'),
+            bbox_inches='tight')
+        plt.close()
         return
 
     def _plot_ecops(self, style, data_type, bd_pts_gr, emp_cop_out_dir):
@@ -326,7 +404,7 @@ class AppearDisappearPlot:
         plt.figure(figsize=(10, 10))
 
         ttl = f'''
-        PCA weights' empirical copulas
+        Input data array's empirical copulas
 
         Analysis style: {style}
         Window type: {self._twt}
@@ -451,7 +529,7 @@ class AppearDisappearPlot:
 
             for lab in var_labs:
 
-                if lab in self.dont_read_vars:
+                if lab in self._dont_read_vars:
                     continue
 
                 if lab in dss:
@@ -569,9 +647,10 @@ class AppearDisappearPlot:
 
         (rats_arr,
          rats_bs_ul_arr,
-         rats_bs_ll_arr) = (rats_arr * 100,
-                            rats_bs_ul_arr * 100,
-                            rats_bs_ll_arr * 100)
+         rats_bs_ll_arr) = (
+            rats_arr * 100,
+            rats_bs_ul_arr * 100,
+            rats_bs_ll_arr * 100)
 
         plt.figure(figsize=(17, 17))
         pc = (9, 9)
@@ -717,15 +796,17 @@ class AppearDisappearPlot:
                 axes[i, j].set_aspect('equal', 'box')
 
         ax_l1.set_axis_off()
+        ax_l2.set_axis_off()
+
         cb1 = plt.colorbar(
             _ps1,
             ax=ax_l1,
             fraction=0.4,
             aspect=15,
             orientation='vertical')
+
         cb1.set_label('Percentage')
 
-        ax_l2.set_axis_off()
         cb2 = plt.colorbar(
             _ps2,
             ax=ax_l2,
@@ -885,7 +966,7 @@ class AppearDisappearPlot:
                     mp_cond,
                     lab_cond,
                     self._ans_dims,
-                    self.loo_flag,
+                    self._loo_flag,
                     *args))
 
             mwi_gen = (
@@ -923,7 +1004,7 @@ class AppearDisappearPlot:
                 mp_cond,
                 lab_cond,
                 self._ans_dims,
-                self.loo_flag,
+                self._loo_flag,
                 dts_arr,
                 self._data_arr)
 
@@ -962,7 +1043,7 @@ class AppearDisappearPlot:
 
         plt.figure(vols_fig.number)
 
-        if self.loo_flag:
+        if self._loo_flag:
             plt.scatter(
                 uloo_vols[:, 0],
                 uloo_vols[:, 1],
@@ -1016,7 +1097,7 @@ class AppearDisappearPlot:
 
             plt.figure(vols_fig.number)
 
-            if self.loo_flag:
+            if self._loo_flag:
                 plt.scatter(
                     ploo_vols[:, 0],
                     ploo_vols[:, 1],

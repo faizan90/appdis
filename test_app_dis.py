@@ -14,8 +14,7 @@ import pandas as pd
 
 from appdis import (
     AppearDisappearAnalysis,
-    AppearDisappearPlot,
-    AppearDisappearVectorSelection)
+    AppearDisappearPlot)
 
 np.set_printoptions(
     precision=3,
@@ -39,7 +38,7 @@ def main():
     n_cpus = 'auto'
     n_dims = 6
     ws = 5  # window size
-    analysis_style = 'peel'
+    analysis_style = 'un_peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
@@ -56,40 +55,35 @@ def main():
 
     sel_idxs_flag = True
 #     ann_flag = True
-#     plot_flag = True
+    plot_flag = True
+
+    if sel_idxs_flag:
+        sel_idxs_lab = '_sel_idxs'
+    else:
+        sel_idxs_lab = ''
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_sel_idxs_test')
+               f'{peel_depth}_pldt{sel_idxs_lab}_test')
 
     print('out_dir:', out_dir)
 
     hdf5_path = Path(out_dir) / 'app_dis_ds.hdf5'
 
-    with open(in_var_file, 'rb') as _hdl:
-        in_var_dict = pickle.load(_hdl)
-        tot_in_var_arr = in_var_dict['anomaly_var_df'].values.copy('c')
-        time_idx = in_var_dict['anomaly_var_df'].index
-#         eig_val_cum_sums = in_var_dict['eig_val_cum_sums']
-
-    if sel_idxs_flag:
-        ad_vs = AppearDisappearVectorSelection()
-        ad_vs.set_data_array(tot_in_var_arr)
-        ad_vs.set_optimization_parameters(
-            n_dims,
-            1.0,
-            0.95,
-            150,
-            20000,
-            1000)
-
-#         ad_vs.set_outputs_directory(out_dir)
-        ad_vs.verify()
-        ad_vs.generate_vector_indicies_set()
-        idxs = ad_vs.get_final_vector_indicies()
-        tot_in_var_arr = tot_in_var_arr[:, idxs].copy('c')
-
     if ann_flag:
+        with open(in_var_file, 'rb') as _hdl:
+            in_var_dict = pickle.load(_hdl)
+
+            if sel_idxs_flag:
+                tot_in_var_arr = in_var_dict['anomaly_var_df'].values.copy('c')
+
+            else:
+                tot_in_var_arr = in_var_dict['pcs_arr'].copy('c')
+
+            time_idx = in_var_dict['anomaly_var_df'].index
+    #         eig_val_cum_sums = in_var_dict['eig_val_cum_sums']
+            del in_var_dict
+
         ad_ans = AppearDisappearAnalysis()
         ad_ans.set_data_array(tot_in_var_arr)
         ad_ans.set_time_index(time_idx)
@@ -99,9 +93,16 @@ def main():
             time_win_type,
             ws,
             analysis_style,
-            n_dims,
             peel_depth,
-            n_cpus)
+            n_cpus,
+            sel_idxs_flag)
+
+        ad_ans.set_optimization_parameters(
+            1.0,
+            0.95,
+            150,
+            20000,
+            1000)
 
         ad_ans.set_boot_strap_on_off(n_boots)
         ad_ans.set_outputs_directory(out_dir)
@@ -124,14 +125,17 @@ def main():
         ad_plot.verify()
         ad_plot.set_n_cpus(n_cpus)  # must call after verify to take effect
 
-        ad_plot.plot_app_dis()
-        ad_plot.plot_volumes(loo_flag)
-        ad_plot.plot_ecops()
+        if sel_idxs_flag:
+            ad_plot.plot_sim_anneal_opt()
+
+#         ad_plot.plot_app_dis()
+#         ad_plot.plot_volumes(loo_flag)
+#         ad_plot.plot_ecops()
     return
 
 
 if __name__ == '__main__':
-    _save_log_ = True
+    _save_log_ = False
     if _save_log_:
         from datetime import datetime
         from std_logger import StdFileLoggerCtrl

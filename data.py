@@ -40,7 +40,7 @@ class AppearDisappearData:
         assert isinstance(mutability, bool)
 
         self.verbose = verbose
-        self.copy_input = copy_input
+        self._copy_input = copy_input
         self._mtbl_flag = mutability
 
         self._poss_t_idx_types = ['time', 'range']
@@ -48,7 +48,7 @@ class AppearDisappearData:
         self._data_arr_set_flag = False
         self._time_index_set_flag = False
         self._uvecs_set_flag = False
-        self._in_vrfd_flag = False
+        self._data_vrfd_flag = False
         return
 
     def set_data_array(self, data_arr):
@@ -70,7 +70,7 @@ class AppearDisappearData:
         assert data_arr.shape[1] > 0, 'Columns should be greater than zero!'
         assert np.all(np.isfinite(data_arr)), 'Invalid values in data_arr!'
 
-        if not self.copy_input:
+        if not self._copy_input:
             assert data_arr.flags.c_contiguous, 'data_arr not c_contiguous!'
             assert data_arr.dtype.type is np.float64, (
                 'data_arr dtype is not np.float64!')
@@ -79,7 +79,7 @@ class AppearDisappearData:
             assert self._t_idx.shape[0] == data_arr.shape[0], (
                 'Unequal lengths of data_arr and time_index!')
 
-        if self.copy_input:
+        if self._copy_input:
             self._data_arr = np.array(data_arr, dtype=np.float64, order='c')
 
         else:
@@ -122,7 +122,7 @@ class AppearDisappearData:
 
             _dfs = time_index[1:] - time_index[:-1]
 
-            if not self.copy_input:
+            if not self._copy_input:
                 assert time_index.flags.c_contiguous, (
                     'time_index not c-contiguous!')
                 assert time_index.dtype.type is np.int64, (
@@ -138,7 +138,7 @@ class AppearDisappearData:
             assert time_index.shape[0] == self._n_data_pts, (
                 'Unequal lengths of data_arr and time_index!')
 
-        if self.copy_input:
+        if self._copy_input:
             if time_index_type == 'time':
                 self._t_idx = pd.DatetimeIndex(time_index)
 
@@ -174,7 +174,7 @@ class AppearDisappearData:
         assert np.all(np.isfinite(uvecs)), 'Invalid values in uvecs!'
         assert uvecs.shape[0] > 0, 'No unit vectors in uvecs!'
 
-        if not self.copy_input:
+        if not self._copy_input:
             assert uvecs.flags.c_contiguous, 'uvecs not c-contiguous!'
             assert uvecs.dtype.type is np.float64, (
                 'uvecs should have the dtype of np.float64!')
@@ -183,7 +183,7 @@ class AppearDisappearData:
             assert uvecs.shape[1] <= self._n_data_dims, (
                 'uvecs have more columns than those of data_arr!')
 
-        if self.copy_input:
+        if self._copy_input:
             self._uvecs = np.array(uvecs, dtype=np.float64, order='c')
 
         else:
@@ -192,6 +192,8 @@ class AppearDisappearData:
         self._uvecs.flags.writeable = self._mtbl_flag
 
         self._n_uvecs = uvecs.shape[0]
+
+        self._ans_dims = uvecs.shape[1]
 
         if self.verbose:
             print(f'Unit vectors set with {self._n_uvecs} points and '
@@ -244,6 +246,7 @@ class AppearDisappearData:
 
         self._uvecs = uvecs
         self._n_uvecs = uvecs.shape[0]
+        self._ans_dims = uvecs.shape[1]
 
         self._uvecs.flags.writeable = self._mtbl_flag
 
@@ -271,7 +274,7 @@ class AppearDisappearData:
         assert self._t_idx.shape[0] == self._n_data_pts, (
             'Unequal lengths of data_arr and time_index!')
 
-        assert self._uvecs.shape[1] <= self._n_data_dims, (
+        assert self._ans_dims <= self._n_data_dims, (
             'uvecs have more columns than those of data_arr!')
 
         uvec_mags = (self._uvecs ** 2).sum(axis=1) ** 0.5
@@ -281,7 +284,7 @@ class AppearDisappearData:
         if self.verbose:
             print('All data inputs verified to be correct.')
 
-        self._in_vrfd_flag = True
+        self._data_vrfd_flag = True
         return
 
     def get_data_array(self):
