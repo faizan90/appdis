@@ -314,8 +314,9 @@ class AppearDisappearPlot:
 
     def plot_sim_anneal_opt(self):
 
-        assert hasattr(self, '_sars')
+        assert hasattr(self, '_sars'), 'sel_ortho_vecs_flag was off!'
 
+        # optimization
         _, obj_ax = plt.subplots(figsize=(20, 10))
         acc_ax = obj_ax.twinx()
 
@@ -356,6 +357,7 @@ class AppearDisappearPlot:
             bbox_inches='tight')
         plt.close()
 
+        # correlation matrix
         plt.figure(figsize=(10, 10))
         plt.imshow(
             self._fca,
