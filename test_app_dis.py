@@ -20,7 +20,7 @@ np.set_printoptions(
     precision=3,
     threshold=2000,
     linewidth=200000,
-    formatter={'float': '{:0.3f}'.format})
+    formatter={'float': '{:+0.3f}'.format})
 
 pd.options.display.precision = 3
 pd.options.display.max_rows = 100
@@ -35,7 +35,7 @@ def main():
 
     in_var_file = main_dir / r'ecad_tg_anomaly_pca_1961_2017.pkl'
 
-    n_uvecs = int(1e2)
+    n_uvecs = int(2e4)
     n_cpus = 'auto'
     n_dims = 6
     ws = 10  # window size
@@ -54,7 +54,7 @@ def main():
     ann_flag = False
     plot_flag = False
 
-    sel_idxs_flag = True
+#     sel_idxs_flag = True
     ann_flag = True
     plot_flag = True
 
@@ -65,7 +65,7 @@ def main():
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt{sel_idxs_lab}_pca')
+               f'{peel_depth}_pldt{sel_idxs_lab}_pca_no_transp')
 
     print('out_dir:', out_dir)
 
@@ -77,34 +77,52 @@ def main():
             in_anom_df = in_var_dict['anomaly_var_df']
 
             if sel_idxs_flag:
-#                 tot_in_var_arr = in_anom_df.values.copy('c')
-                ################################
-                sel_idxs = in_anom_df.columns[[9, 11, 13, 18, 47, 50]]
-                tot_in_var_arr = (
-                    in_anom_df.loc[:, sel_idxs].values.copy('c'))
+                tot_in_var_arr = in_anom_df.values.copy('c')
 
-                in_anomaly_corr_mat = np.corrcoef(tot_in_var_arr.T)
-                print('in_anomaly_corr_mat shape:', in_anomaly_corr_mat.shape)
-
-                (in_anomaly_eig_vals,
-                 in_anomaly_eig_vecs_mat) = np.linalg.eig(in_anomaly_corr_mat)
-
-                eig_sort_idxs = np.argsort(in_anomaly_eig_vals)[::-1]
-
-                in_anomaly_eig_vals = in_anomaly_eig_vals[eig_sort_idxs]
-                in_anomaly_eig_vecs_mat = (
-                    in_anomaly_eig_vecs_mat[:, eig_sort_idxs])
-
-                print('in_anomaly_eig_vals shape:', in_anomaly_eig_vals.shape)
-                print('in_anomaly_eig_vecs_mat shape:', in_anomaly_eig_vecs_mat.shape)
-
-                eig_val_cum_sums = np.cumsum(in_anomaly_eig_vals) / in_anomaly_eig_vals.sum()
-                print('first 8 anomaly eig_val_cum_sums:', eig_val_cum_sums[:8])
-
-                tot_in_var_arr = np.dot(
-                    tot_in_var_arr,
-                    in_anomaly_eig_vecs_mat.T)
-                ###########################################
+#                 ################################
+#                 sel_idxs = in_anom_df.columns[[9, 11, 13, 18, 47, 50]]
+#                 tot_in_var_arr_orig = (
+#                     in_anom_df.loc[:, sel_idxs].values.copy('c'))
+#
+# #                 in_anomaly_corr_mat = np.corrcoef(tot_in_var_arr.T)
+#                 in_anomaly_corr_mat = np.cov(tot_in_var_arr_orig.T)
+#                 print('in_anomaly_corr_mat shape:', in_anomaly_corr_mat.shape)
+#
+#                 (in_anomaly_eig_vals,
+#                  in_anomaly_eig_vecs_mat) = np.linalg.eig(in_anomaly_corr_mat)
+#
+# #                 from scipy.linalg import eig
+# #                 (in_anomaly_eig_vals,
+# #                  in_anomaly_eig_vecs_mat) = eig(in_anomaly_corr_mat)
+#
+#                 eig_sort_idxs = np.argsort(in_anomaly_eig_vals)[::-1]
+#
+#                 in_anomaly_eig_vals = in_anomaly_eig_vals[eig_sort_idxs]
+#                 in_anomaly_eig_vecs_mat = (
+#                     in_anomaly_eig_vecs_mat[:, eig_sort_idxs])
+#
+#                 print(
+#                     'in_anomaly_eig_vals shape:',
+#                     in_anomaly_eig_vals.shape)
+#                 print(
+#                     'in_anomaly_eig_vecs_mat shape:',
+#                     in_anomaly_eig_vecs_mat.shape)
+#
+#                 eig_val_cum_sums = (
+#                     np.cumsum(in_anomaly_eig_vals) /
+#                     in_anomaly_eig_vals.sum())
+#
+#                 print(
+#                     'first 8 anomaly eig_val_cum_sums:',
+#                     eig_val_cum_sums[:8])
+#
+# #                 tot_in_var_arr_orig = tot_in_var_arr
+#
+#                 tot_in_var_arr = np.matmul(
+#                     tot_in_var_arr_orig,
+#                     in_anomaly_eig_vecs_mat.T)
+#
+#                 ###########################################
 
             else:
                 tot_in_var_arr = in_var_dict['pcs_arr'].copy('c')
@@ -154,11 +172,14 @@ def main():
         ad_plot.verify()
         ad_plot.set_n_cpus(n_cpus)  # must call after verify to take effect
 
+        ad_plot.plot_app_dis()
+
         if sel_idxs_flag:
             ad_plot.plot_sim_anneal_opt()
 
-        ad_plot.plot_app_dis()
-        ad_plot.plot_volumes(loo_flag)
+        if n_dims <= 6:
+            ad_plot.plot_volumes(loo_flag)
+
         ad_plot.plot_ecops()
     return
 

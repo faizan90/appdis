@@ -168,7 +168,7 @@ class AppearDisappearPlot:
         self._bef_plot()
 
         if self.verbose:
-            print('All plotting inputs verfied to be correct.')
+            print('All plotting inputs verified to be correct.')
 
         self._plot_vrfd_flag = True
         return
