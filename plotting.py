@@ -255,8 +255,8 @@ class AppearDisappearPlot:
             significantly.
         '''
 
-        assert self._ans_dims <= 6, (
-            'More than 6D volume computation not supported!')
+        assert self._ans_dims <= 7, (
+            'More than 7D volume computation not supported!')
 
         assert isinstance(loo_flag, bool)
 
