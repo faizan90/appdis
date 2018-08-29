@@ -30,14 +30,14 @@ pd.options.display.width = 250
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_pp')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_tg')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
+    in_var_file = main_dir / r'ecad_tg_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e3)
+    n_uvecs = int(2e4)
     n_cpus = 'auto'
-    n_dims = 5
+    n_dims = 6
     ws = 10  # window size
     analysis_style = 'peel'
     time_win_type = 'year'
@@ -48,17 +48,18 @@ def main():
     n_boots = 0
     hdf_flush_flag = 0
     vol_data_lev = 1
-    loo_flag = True
+    loo_flag = False
     max_allowed_corr = 0.5
+    app_dis_cb_max = 50
 
     sel_idxs_flag = False
     take_rest_flag = False
     ann_flag = False
     plot_flag = False
 
-    sel_idxs_flag = True
-#     take_rest_flag = True
-    ann_flag = True
+#     sel_idxs_flag = True
+    take_rest_flag = True
+#     ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -73,7 +74,7 @@ def main():
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt{sel_idxs_lab}{rest_lab}_test')
+               f'{peel_depth}_pldt{sel_idxs_lab}{rest_lab}')
 
     print('out_dir:', out_dir)
 
@@ -141,18 +142,18 @@ def main():
         ad_plot = AppearDisappearPlot()
         ad_plot.set_hdf5(hdf5_path)
         ad_plot.set_outputs_directory(out_dir)
-        ad_plot.set_fig_props(n_ticks, cmap)
+        ad_plot.set_fig_props(n_ticks, cmap, app_dis_cb_max)
         ad_plot.verify()
         ad_plot.set_n_cpus(n_cpus)  # must call after verify to take effect
 
-        ad_plot.plot_app_dis()
+#         ad_plot.plot_app_dis()
 
-        if sel_idxs_flag:
-            ad_plot.plot_sim_anneal_opt()
-
-        if n_dims <= 7:
-            ad_plot.plot_volumes(loo_flag)
-
+#         if sel_idxs_flag:
+#             ad_plot.plot_sim_anneal_opt()
+#
+#         if n_dims <= 7:
+#             ad_plot.plot_volumes(loo_flag)
+#
         ad_plot.plot_ecops()
     return
 

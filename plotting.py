@@ -20,7 +20,7 @@ from matplotlib.ticker import MaxNLocator
 
 from .misc import ret_mp_idxs
 from .analysis import AppearDisappearAnalysis
-from .cyth import get_corrcoeff, get_asymms_sample
+from .cyth import get_corrcoeff, get_asymms_sample, get_2d_rel_hist
 
 plt.ioff()
 
@@ -122,7 +122,7 @@ class AppearDisappearPlot:
         self._out_dir_set_flag = True
         return
 
-    def set_fig_props(self, n_ticks, cmap):
+    def set_fig_props(self, n_ticks, cmap, app_dis_cb_max):
 
         '''Set properties of the output figures.
 
@@ -133,12 +133,18 @@ class AppearDisappearPlot:
             function is not called.
         cmap : str or matplotlib.colors.Colormap
             The color map to use while plotting grids. Default is jet.
+        app_dis_cb_max : int
+            The maximum value on the appearing-disappearing figures. Should
+            be between 0 and 100.
         '''
 
         assert isinstance(n_ticks, int)
         assert (n_ticks > 0) and np.isfinite(n_ticks)
 
         assert isinstance(cmap, (str, Colormap))
+
+        assert isinstance(app_dis_cb_max, int)
+        assert 0 < app_dis_cb_max <= 100
 
         self._n_ticks = n_ticks
 
@@ -148,6 +154,8 @@ class AppearDisappearPlot:
 
         else:
             self._cmap = cmap
+
+        self._adcm = app_dis_cb_max
 
         self._fig_props_set_flag = True
         return
@@ -408,7 +416,7 @@ class AppearDisappearPlot:
         plt.figure(figsize=(10, 10))
 
         ttl = f'''
-        Input data array's empirical copulas
+        %s
 
         Analysis style: {style}
         Window type: {self._twt}
@@ -422,6 +430,11 @@ class AppearDisappearPlot:
         Total steps: %d
         %d chull points
         '''
+
+        # entropy stuff
+        ent_bins = 10
+        ent_ticks = np.arange(0.0, ent_bins + 0.1)
+        ent_tick_labels = np.round(np.linspace(0.0, 1.0, ent_bins + 1), 1)
 
         for i in range(self._ans_dims):
             probs_arr_i = probs_arr[:, i]
@@ -483,6 +496,7 @@ class AppearDisappearPlot:
                 plt.legend(framealpha=0.5)
 
                 cttl = ttl % (
+                    'Input data array\'s empirical copulas',
                     correl,
                     asymms['asymm_1'],
                     asymms['asymm_2'],
@@ -497,7 +511,52 @@ class AppearDisappearPlot:
                 plt.grid()
 
                 out_fig_name = (
-                    f'{data_type}_{style}_pca_wts_emp_cop_{i}_{j}.png')
+                    f'emp_cop_{data_type}_{style}_vec_{i}_{j}.png')
+
+                plt.gca().set_aspect('equal', 'box')
+
+                plt.savefig(
+                    str(emp_cop_out_dir / out_fig_name), bbox_inches='tight')
+
+                plt.clf()
+
+                # entropy
+                hist_2d = get_2d_rel_hist(probs_i, probs_j, ent_bins)
+                ent_idxs = hist_2d > 0
+                ent_grid = np.zeros((ent_bins, ent_bins))
+                ent_grid[ent_idxs] = -(
+                    hist_2d[ent_idxs] * np.log(hist_2d[ent_idxs]))
+
+                ettl = ttl % (
+                    'Input data array\'s empirical copula entropy',
+                    correl,
+                    asymms['asymm_1'],
+                    asymms['asymm_2'],
+                    probs_i.shape[0],
+                    nchull_pts)
+
+                plt.title(
+                    ettl,
+                    fontdict={'ha': 'right'},
+                    loc='right')
+
+                plt.pcolormesh(
+                    ent_grid,
+                    cmap=self._cmap)
+
+                plt.xticks(ent_ticks, ent_tick_labels)
+                plt.yticks(ent_ticks, ent_tick_labels)
+
+                plt.xlabel(f'Dimension: {i} bins')
+                plt.ylabel(f'Dimension: {j} bins')
+
+                plt.colorbar(
+                    label='Entropy', orientation='vertical', shrink=0.5)
+
+                out_fig_name = (
+                    f'entropy_{data_type}_{style}_vec_{i}_{j}.png')
+
+                plt.gca().set_aspect('equal', 'box')
 
                 plt.savefig(
                     str(emp_cop_out_dir / out_fig_name), bbox_inches='tight')
@@ -512,6 +571,7 @@ class AppearDisappearPlot:
         if not self._fig_props_set_flag:
             self._nticks = 15
             self._cmap = plt.get_cmap('jet')
+            self._adcm = 30
 
         h5_hdl = h5py.File(str(self._h5_path), mode='r')
 
@@ -597,7 +657,9 @@ class AppearDisappearPlot:
             xcs,
             ycs,
             plot_arr * 100,
-            cmap=self._cmap)
+            cmap=self._cmap,
+            vmin=0,
+            vmax=self._adcm)
 
         ttl = f'''
         Appearing and disappearing situations
@@ -677,10 +739,8 @@ class AppearDisappearPlot:
         cvmin = -1
         cvmax = +1
 
-        rvmin = min(
-            rats_arr.min(), rats_bs_ul_arr.min(), rats_bs_ll_arr.min())
-        rvmax = max(
-            rats_arr.max(), rats_bs_ul_arr.max(), rats_bs_ll_arr.max())
+        rvmin = 0
+        rvmax = self._adcm
 
         if not np.isfinite(rvmin):
             rvmin = 0
@@ -1142,6 +1202,10 @@ class AppearDisappearPlot:
                 zorder=6,
                 linewidth=1)
 
+            vol_corr = get_corrcoeff(uvols, pvols)
+        else:
+            vol_corr = np.nan
+
         if self._mp_pool is not None:
             self._mp_pool.close()
             self._mp_pool.join()
@@ -1155,6 +1219,7 @@ class AppearDisappearPlot:
         {self._ans_dims} dimensions analyzed
         {self._n_uvecs:1.0E} unit vectors
         Peeling depth: {self._pl_dth}
+        Peeedl-Unpeeled correlation: {vol_corr: 0.4f}
         Window size: {self._ws} {self._twt}(s)
         Starting, ending {self._twt}(s): {ulabs[0]}, {ulabs[-1]}
         '''

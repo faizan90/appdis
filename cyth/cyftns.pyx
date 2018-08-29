@@ -6,6 +6,9 @@
 # cython: infer_types=False
 # cython: embedsignature=True
 
+import numpy as np
+cimport numpy as np
+
 ctypedef double DT_D
 ctypedef unsigned long DT_UL
 
@@ -101,3 +104,39 @@ cpdef dict get_asymms_sample(DT_D[:] u, DT_D[:] v):
     asymm_2 = asymm_2 / n_vals
 
     return {'asymm_1':asymm_1, 'asymm_2':asymm_2}
+
+
+cpdef np.ndarray get_2d_rel_hist(
+    DT_D[:] x_probs, DT_D[:] y_probs, DT_UL cop_bins):
+
+    '''get the bivariate empirical copula'''
+
+    cdef:
+        Py_ssize_t i, j
+        Py_ssize_t i_row, j_col
+
+        DT_UL tot_pts = x_probs.shape[0], tot_sum
+
+        DT_D u1, u2
+
+        DT_D[:, ::1] hist_arr = (
+            np.zeros((cop_bins, cop_bins), dtype=np.float64))
+
+    tot_sum = 0
+    for i in range(tot_pts):
+        u1 = x_probs[i]
+        u2 = y_probs[i]
+
+        i_row = <Py_ssize_t> (u1 * cop_bins)
+        j_col = <Py_ssize_t> (u2 * cop_bins)
+
+        hist_arr[i_row, j_col] += 1
+        tot_sum += 1
+
+    assert tot_pts == tot_sum, 'Error!'
+
+    for i in range(cop_bins):
+        for j in range(cop_bins):
+            hist_arr[i, j] = hist_arr[i, j] / tot_pts
+
+    return np.asarray(hist_arr)

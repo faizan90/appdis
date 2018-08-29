@@ -210,7 +210,8 @@ class AppearDisappearVectorSelection(ADDA):
         if self.verbose:
             print('\n')
             print('Objective function value:', old_obj_val)
-            print('Total optimization iterations:', i)
+            print('Optimization iterations:', i)
+            print('Total optimization iterations:', self._mis)
             print('Final indicies:', self._fidxs)
             print('Final correlation array:')
             print(self._fca)
@@ -242,7 +243,7 @@ class AppearDisappearVectorSelection(ADDA):
 
     def _get_obj_ftn_val(self, corrs_arr):
 
-        return corrs_arr.sum()
+        return corrs_arr.sum() + corrs_arr.max()
 
     def _bef_opt(self):
 
