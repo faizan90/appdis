@@ -30,14 +30,14 @@ pd.options.display.width = 250
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_pressure')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_pp')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2017.pkl'
+    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
     n_uvecs = int(1e3)
     n_cpus = 'auto'
-    n_dims = 6
+    n_dims = 5
     ws = 10  # window size
     analysis_style = 'peel'
     time_win_type = 'year'
@@ -49,13 +49,14 @@ def main():
     hdf_flush_flag = 0
     vol_data_lev = 1
     loo_flag = True
+    max_allowed_corr = 0.5
 
     sel_idxs_flag = False
     take_rest_flag = False
     ann_flag = False
     plot_flag = False
 
-#     sel_idxs_flag = True
+    sel_idxs_flag = True
 #     take_rest_flag = True
     ann_flag = True
     plot_flag = True
@@ -72,7 +73,7 @@ def main():
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt{sel_idxs_lab}{rest_lab}')
+               f'{peel_depth}_pldt{sel_idxs_lab}{rest_lab}_test')
 
     print('out_dir:', out_dir)
 
@@ -84,49 +85,7 @@ def main():
             in_anom_df = in_var_dict['anomaly_var_df']
 
             if sel_idxs_flag:
-#                 sel_idxs_flag = False
                 tot_in_var_arr = in_anom_df.values.copy('c')
-
-#                 ################################
-#                 sel_idxs = in_anom_df.columns  # [[9, 11, 13, 18, 47, 50]]
-#                 tot_in_var_arr_orig = (
-#                     in_anom_df.loc[:, sel_idxs].values.copy('c'))
-#
-#                 in_anomaly_corr_mat = np.corrcoef(tot_in_var_arr_orig.T)
-# #                 in_anomaly_corr_mat = np.cov(tot_in_var_arr_orig.T)
-#                 print('in_anomaly_corr_mat shape:', in_anomaly_corr_mat.shape)
-#
-#                 (in_anomaly_eig_vals,
-#                  in_anomaly_eig_vecs_mat) = np.linalg.eig(in_anomaly_corr_mat)
-#
-#                 eig_sort_idxs = np.argsort(in_anomaly_eig_vals)[::-1]
-#
-#                 in_anomaly_eig_vals = in_anomaly_eig_vals[eig_sort_idxs]
-#                 in_anomaly_eig_vecs_mat = (
-#                     in_anomaly_eig_vecs_mat[:, eig_sort_idxs])
-#
-# #                 print(
-# #                     'in_anomaly_eig_vals shape:',
-# #                     in_anomaly_eig_vals.shape)
-# #                 print(
-# #                     'in_anomaly_eig_vecs_mat shape:',
-# #                     in_anomaly_eig_vecs_mat.shape)
-#
-#                 eig_val_cum_sums = (
-#                     np.cumsum(in_anomaly_eig_vals) /
-#                     in_anomaly_eig_vals.sum())
-#
-#                 print(
-#                     'first 8 anomaly eig_val_cum_sums:',
-#                     eig_val_cum_sums[:8])
-#
-# #                 tot_in_var_arr_orig = tot_in_var_arr
-#
-#                 tot_in_var_arr = np.matmul(
-#                     tot_in_var_arr_orig,
-#                     in_anomaly_eig_vecs_mat)
-
-                ###########################################
 
             else:
                 tot_in_var_arr = in_var_dict['pcs_arr'].copy('c')
@@ -142,7 +101,6 @@ def main():
                     assert tot_in_var_arr.shape[1] == n_dims
 
             time_idx = in_anom_df.index
-    #         eig_val_cum_sums = in_var_dict['eig_val_cum_sums']
             del in_var_dict, in_anom_df
 
         ad_ans = AppearDisappearAnalysis()
@@ -159,11 +117,12 @@ def main():
             sel_idxs_flag)
 
         ad_ans.set_optimization_parameters(
-            1.0,
+            0.5,
             0.95,
             150,
             20000,
-            1000)
+            5000,
+            max_allowed_corr)
 
         ad_ans.set_boot_strap_on_off(n_boots)
         ad_ans.set_outputs_directory(out_dir)

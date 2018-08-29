@@ -20,29 +20,14 @@ class AppearDisappearVectorSelection(ADDA):
         self._opt_vrfd_flag = False
         return
 
-    def _bef_opt(self):
-
-        '''Prepare variables required by the optimization.
-
-        This is a base class.
-        '''
-
-        assert self._opt_vrfd_flag, 'Optimization inputs unverified!'
-
-        self._acorr_arr = np.abs(np.corrcoef(self._data_arr.T))
-
-        self._acorr_arr.flags.writeable = self._mtbl_flag
-
-        self._irng = np.arange(self._n_data_dims)
-        return
-
     def set_optimization_parameters(
             self,
             initial_annealing_temperature,
             temperature_reduction_alpha,
             update_at_every_iteration_no,
             maximum_iterations,
-            maximum_without_change_iterations):
+            maximum_without_change_iterations,
+            maximum_allowed_correlation):
 
         '''Set optimization parameters for simulated annealing.
 
@@ -62,6 +47,11 @@ class AppearDisappearVectorSelection(ADDA):
         maximum_without_change_iterations : int
             Terminate the optimization if a better combination is not found
             after maximum_without_change_iterations iterations.
+        maximum_allowed_correlation : float
+            Maximum correlation that any two vectors can have in the
+            correlation matrix in order for it to be accepted as an
+            optimized configuration.
+            It is an absoulte value between 0 and 1.
         '''
 
         assert isinstance(initial_annealing_temperature, float)
@@ -69,6 +59,7 @@ class AppearDisappearVectorSelection(ADDA):
         assert isinstance(update_at_every_iteration_no, int)
         assert isinstance(maximum_iterations, int)
         assert isinstance(maximum_without_change_iterations, int)
+        assert isinstance(maximum_allowed_correlation, float)
 
         assert initial_annealing_temperature > 0
         assert np.isfinite(initial_annealing_temperature)
@@ -85,11 +76,14 @@ class AppearDisappearVectorSelection(ADDA):
             update_at_every_iteration_no)
         assert maximum_without_change_iterations <= maximum_iterations
 
+        assert 0 < maximum_allowed_correlation < 1
+
         self._iat = initial_annealing_temperature
         self._tra = temperature_reduction_alpha
         self._uaein = update_at_every_iteration_no
         self._mis = maximum_iterations
         self._mwocis = maximum_without_change_iterations
+        self._mac = maximum_allowed_correlation
 
         self._opt_prms_set_flag = True
         return
@@ -123,10 +117,10 @@ class AppearDisappearVectorSelection(ADDA):
 
         assert self._opt_vrfd_flag, 'Optimization inputs unverified!'
 
-        old_sel_idxs = np.random.choice(
+        osel_idxs = np.random.choice(
             self._irng, size=self._ans_dims, replace=False)
 
-        old_corr_arr = self._acorr_arr[old_sel_idxs][:, old_sel_idxs].copy()
+        old_corr_arr = self._acorr_arr[osel_idxs][:, osel_idxs].copy()
 
         old_obj_val = self._get_obj_ftn_val(old_corr_arr)
 
@@ -150,24 +144,27 @@ class AppearDisappearVectorSelection(ADDA):
                 ci = 0
                 ctp = ctp * self._tra
 
-            old_idx = np.random.choice(old_sel_idxs, size=1, replace=False)[0]
+            old_idx = np.random.choice(
+                osel_idxs, size=1, replace=False)[0]
 
             new_idx = np.random.choice(self._irng, size=1, replace=False)[0]
 
             ctr = 0
-            while (old_idx == new_idx) or (new_idx in old_sel_idxs):
-                new_idx = np.random.choice(self._irng, size=1, replace=False)[0]
+            while (old_idx == new_idx) or (new_idx in osel_idxs):
+
+                new_idx = np.random.choice(
+                    self._irng, size=1, replace=False)[0]
 
                 if ctr > 100:
-                    raise RuntimeError('Something is wrong!')
+                    raise RuntimeError('Something wrong is!')
 
                 ctr += 1
 
-            new_sel_idxs = old_sel_idxs.copy()
+            nsel_idxs = osel_idxs.copy()
 
-            new_sel_idxs[new_sel_idxs == old_idx] = new_idx
+            nsel_idxs[nsel_idxs == old_idx] = new_idx
 
-            new_corr_arr = self._acorr_arr[new_sel_idxs][:, new_sel_idxs].copy()
+            new_corr_arr = self._acorr_arr[nsel_idxs][:, nsel_idxs].copy()
 
             new_obj_val = self._get_obj_ftn_val(new_corr_arr)
 
@@ -185,7 +182,7 @@ class AppearDisappearVectorSelection(ADDA):
                     sel_cond = False
 
             if sel_cond:
-                old_sel_idxs = new_sel_idxs
+                osel_idxs = nsel_idxs
                 old_corr_arr = new_corr_arr
                 old_obj_val = new_obj_val
 
@@ -204,18 +201,25 @@ class AppearDisappearVectorSelection(ADDA):
             i = i + 1
 
         assert np.all(np.isclose(
-            old_corr_arr, self._acorr_arr[old_sel_idxs][:, old_sel_idxs])), (
+            old_corr_arr, self._acorr_arr[osel_idxs][:, osel_idxs])), (
                 'This should not happen!')
 
-        self._fidxs = np.sort(old_sel_idxs)
+        self._fidxs = np.sort(osel_idxs)
         self._fca = self._acorr_arr[self._fidxs][:, self._fidxs]
 
         if self.verbose:
             print('\n')
             print('Objective function value:', old_obj_val)
+            print('Total optimization iterations:', i)
             print('Final indicies:', self._fidxs)
             print('Final correlation array:')
             print(self._fca)
+
+        assert self._fca.max() <= self._mac, (
+            f'Could not find a configuration with minimum '
+            f'correlations below {self._mac}. Please increase '
+            f'maximum_allowed_correlation or reduce the dimensions '
+            f'of the problem.')
 
         self._siovs = np.array(i_obj_vals)
         self._smovs = np.array(min_obj_vals)
@@ -236,8 +240,25 @@ class AppearDisappearVectorSelection(ADDA):
             'Call generate_vector_indicies_set first!')
         return self._fca
 
-    def _get_obj_ftn_val(self, corrs_arr):  #
+    def _get_obj_ftn_val(self, corrs_arr):
 
         return corrs_arr.sum()
+
+    def _bef_opt(self):
+
+        '''Prepare variables required by the optimization.'''
+
+        assert self._opt_vrfd_flag, 'Optimization inputs unverified!'
+
+        # don't use this for anything else except this optimization
+        self._acorr_arr = np.abs(np.corrcoef(self._data_arr.T))
+
+        # diagonal set to zero
+        self._acorr_arr.ravel()[::self._acorr_arr.shape[0] + 1] = 0
+
+        self._acorr_arr.flags.writeable = self._mtbl_flag
+
+        self._irng = np.arange(self._n_data_dims)
+        return
 
     __verify = verify
