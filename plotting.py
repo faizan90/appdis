@@ -3,10 +3,7 @@ Created on Aug 8, 2018
 
 @author: Faizan-Uni
 '''
-import psutil
-from functools import partial
 from pathlib import Path
-from multiprocessing import Pool
 
 import h5py
 import numpy as np
@@ -14,11 +11,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
-from scipy.spatial import ConvexHull
 from scipy.stats import rankdata
 from matplotlib.ticker import MaxNLocator
 
-from .misc import ret_mp_idxs
 from .analysis import AppearDisappearAnalysis
 from .cyth import get_corrcoeff, get_asymms_sample, get_2d_rel_hist
 
@@ -51,7 +46,6 @@ class AppearDisappearPlot:
             '_pld_upld_bs_flg',
             '_upld_pld_bs_flg')
 
-        self._mp_pool = None
         self._n_cpus = None
 
         self._loo_flag = False
@@ -181,34 +175,6 @@ class AppearDisappearPlot:
         self._plot_vrfd_flag = True
         return
 
-    def set_n_cpus(self, n_cpus='auto'):
-
-        # must call after verify to take effect
-        '''Set the number of threads used while plotting.
-
-        It is mainly required for the volume computation.
-
-        Parameters
-        ----------
-        n_cpus : str, int
-            Number of threads.
-            If 'auto' then use one less than the maximum available threads.
-        '''
-
-        assert self._plot_vrfd_flag
-
-        if n_cpus != 'auto':
-            assert (n_cpus > 0) and np.isfinite(n_cpus)
-
-        else:
-            n_cpus = max(1, psutil.cpu_count() - 1)
-
-        if self.verbose:
-            print('Plotting N. cpus set to:', n_cpus)
-
-        self._n_cpus = n_cpus
-        return
-
     def plot_app_dis(self):
 
         '''Plot the appearing and disappearing cases on a grid.
@@ -263,8 +229,8 @@ class AppearDisappearPlot:
             significantly.
         '''
 
-        assert self._ans_dims <= 7, (
-            'More than 7D volume computation not supported!')
+        assert self._ans_dims <= self._mvds, (
+            f'More than {self._mvds}D volume computation not supported!')
 
         assert isinstance(loo_flag, bool)
 
@@ -358,7 +324,6 @@ class AppearDisappearPlot:
         plt.close()
 
         # optimization
-
         if self._n_data_dims != self._ans_dims:
             _, obj_ax = plt.subplots(figsize=(20, 10))
             acc_ax = obj_ax.twinx()
@@ -459,7 +424,6 @@ class AppearDisappearPlot:
                     bd_j = probs_arr_j[peel_idxs]
 
                 elif style == 'un_peel':
-
                     probs_i = probs_arr_i
                     probs_j = probs_arr_j
 
@@ -703,7 +667,7 @@ class AppearDisappearPlot:
             out_fig_name,
             arr_lab):
 
-        '''Plot the appearing disappearing cases'''
+        '''Plot the appearing disappearing cases with boot strapping'''
 
         assert self._bef_plot_vars_set
 
@@ -926,180 +890,23 @@ class AppearDisappearPlot:
                     'Unpeeled-peeled (Bootstrap)')
         return
 
-    @staticmethod
-    def _get_vols(step_idxs, args):
-
-        '''Get volume of moving window convex hulls'''
-
-        mp_cond, lab_cond, dims, loo_flag = args[:4]
-
-        labs = []
-        vols = []
-        loo_vols = []
-        n_chull_cts = []
-        chull_idxs = []
-
-        if mp_cond:
-            path, dts_path, data_path = args[4:]
-
-            h5_hdl = h5py.File(path, driver='core', mode='r')
-
-            dts_arr = h5_hdl[dts_path][...]
-            data_arr = h5_hdl[data_path][...]
-
-            h5_hdl.close()
-
-        else:
-            dts_arr, data_arr = args[4:]
-
-        for i in step_idxs:
-            ct = dts_arr['cts'][i]
-
-            dts = dts_arr['dts'][i, :ct]
-            idxs = dts_arr['idx'][i, :ct]
-
-            lab_int = dts_arr['lab'][i]
-
-            if lab_cond == 1:
-                lab = lab_int
-
-            elif lab_cond == 2:
-                lab = f'{lab_int}'[:4] + '-' + f'{lab_int}'[4:]
-
-            elif lab_cond == 3:
-                lab = lab_int
-
-            labs.append(lab)
-
-            bd_idxs = idxs[dts == 1]
-
-            chull_idxs.append(bd_idxs)
-
-            hull_pts = data_arr[bd_idxs, :dims]
-            n_chull_pts = bd_idxs.shape[0]
-
-            vols.append(ConvexHull(hull_pts).volume)
-            n_chull_cts.append(n_chull_pts)
-
-            if loo_flag:
-                # remove a pt and cmpt volume
-                loo_idxs = np.ones(n_chull_pts, dtype=bool)
-                for j in range(n_chull_pts):
-                    loo_idxs[j] = False
-
-                    loo_vols.append(
-                        [i, ConvexHull(hull_pts[loo_idxs]).volume])
-
-                    loo_idxs[j] = True
-
-        loo_vols = np.array(loo_vols)
-        vols = np.array(vols)
-        labs = np.array(labs)
-        n_chull_cts = np.array(n_chull_cts)
-        chull_idxs = np.unique(np.concatenate(chull_idxs))
-
-        return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
-
-    def _prep_for_vols(self, *args):
-
-        labs = []
-        vols = []
-        loo_vols = []
-        n_chull_cts = []
-        chull_idxs = []
-
-        if self._twt == 'year':
-            lab_cond = 1
-
-        elif self._twt == 'month':
-            lab_cond = 2
-
-        elif self._twt == 'range':
-            lab_cond = 3
-
-        idxs_rng = np.arange(self._mwi)
-
-        if self._mp_pool is not None:
-            mp_cond = True
-
-            mp_idxs = ret_mp_idxs(self._mwi, self._n_cpus)
-
-            part_ftn = partial(
-                AppearDisappearPlot._get_vols,
-                args=(
-                    mp_cond,
-                    lab_cond,
-                    self._ans_dims,
-                    self._loo_flag,
-                    *args))
-
-            mwi_gen = (
-                idxs_rng[mp_idxs[i]:mp_idxs[i + 1]]
-
-                for i in range(self._n_cpus))
-
-            # use of map is necessary to keep order
-            ress = self._mp_pool.map(part_ftn, mwi_gen)
-
-            for res in ress:
-                labs.append(res[0])
-                vols.append(res[1])
-                loo_vols.append(res[2])
-                n_chull_cts.append(res[3])
-                chull_idxs.append(res[4])
-
-            res = None
-            ress = None
-
-            labs = np.concatenate(labs)
-            vols = np.concatenate(vols)
-            loo_vols = np.concatenate(loo_vols)
-            n_chull_cts = np.concatenate(n_chull_cts)
-            chull_idxs = np.concatenate(chull_idxs)
-
-            chull_idxs = np.unique(chull_idxs)
-
-        else:
-            mp_cond = False
-
-            dts_arr, = args
-
-            args = (
-                mp_cond,
-                lab_cond,
-                self._ans_dims,
-                self._loo_flag,
-                dts_arr,
-                self._data_arr)
-
-            (labs,
-             vols,
-             loo_vols,
-             n_chull_cts,
-             chull_idxs) = AppearDisappearPlot._get_vols(idxs_rng, args)
-
-        return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
-
     def _plot_vols(self):
 
         assert self._bef_plot_vars_set
 
         assert self._vdl
 
-        if (self._n_cpus > 1) and (self._ans_dims >= 4):
+        h5_hdl = h5py.File(str(self._h5_path), mode='r')
 
-            self._mp_pool = Pool(self._n_cpus)
+        dss = h5_hdl['vol_boot_vars']
 
-        if self._mp_pool is not None:
-            uvols_res = self._prep_for_vols(
-                self._h5_path, '/dts_vars/_rudts', 'in_data/_data_arr')
+        _ulabs = dss['_ulabs']
+        _uvols = dss['_uvols']
+        _uloo_vols = dss['_uloo_vols']
+        _un_chull_cts = dss['_un_chull_cts']
+        _uchull_idxs = dss['_uchull_idxs']
 
-        else:
-            uvols_res = self._prep_for_vols(self._rudts)
-
-        ulabs, uvols, uloo_vols, un_chull_cts, uchull_idxs = uvols_res
-
-        plt_xs = np.arange(len(ulabs))
+        plt_xs = np.arange(len(_ulabs))
 
         vols_fig = plt.figure(figsize=(20, 7))
         npts_fig = plt.figure(figsize=(20, 7))
@@ -1109,27 +916,49 @@ class AppearDisappearPlot:
 
         if self._loo_flag:
             plt.scatter(
-                uloo_vols[:, 0],
-                uloo_vols[:, 1],
+                _uloo_vols[:, 0],
+                _uloo_vols[:, 1],
                 marker='o',
                 alpha=0.2,
                 label='unpeeled leave-one',
                 color='C0',
-                zorder=9)
+                zorder=8)
 
         plt.plot(
             plt_xs,
-            uvols,
+            _uvols,
             marker='o',
             alpha=0.6,
             label='unpeeled',
             color='C0',
             zorder=10)
 
+        if 'min_vol_bs' in dss:
+            min_vol_bs = dss['min_vol_bs']
+            max_vol_bs = dss['max_vol_bs']
+
+            plt.plot(
+                min_vol_bs[:, 0],
+                min_vol_bs[:, 1],
+                alpha=0.6,
+                ls=':',
+                label='05% vol',
+                color='C2',
+                zorder=9)
+
+            plt.plot(
+                max_vol_bs[:, 0],
+                max_vol_bs[:, 1],
+                alpha=0.6,
+                ls=':',
+                label='95% vol',
+                color='C3',
+                zorder=9)
+
         plt.figure(npts_fig.number)
         plt.plot(
             plt_xs,
-            un_chull_cts,
+            _un_chull_cts,
             marker='o',
             alpha=0.6,
             label='unpeeled',
@@ -1138,7 +967,7 @@ class AppearDisappearPlot:
 
         plt.figure(bd_pt_fig.number)
         ubd_pt_arr = np.zeros(self._n_data_pts, dtype=np.int16)
-        ubd_pt_arr[uchull_idxs] = 1
+        ubd_pt_arr[_uchull_idxs] = 1
         plt.plot(
             self._t_idx,
             ubd_pt_arr,
@@ -1150,21 +979,17 @@ class AppearDisappearPlot:
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
-            if self._mp_pool is not None:
-                pvols_res = self._prep_for_vols(
-                    self._h5_path, '/dts_vars/_rpdts', 'in_data/_data_arr')
-
-            else:
-                pvols_res = self._prep_for_vols(self._rpdts)
-
-            _, pvols, ploo_vols, pn_chull_cts, pchull_idxs = pvols_res
+            _pvols = dss['_pvols']
+            _ploo_vols = dss['_ploo_vols']
+            _pn_chull_cts = dss['_pn_chull_cts']
+            _pchull_idxs = dss['_pchull_idxs']
 
             plt.figure(vols_fig.number)
 
             if self._loo_flag:
                 plt.scatter(
-                    ploo_vols[:, 0],
-                    ploo_vols[:, 1],
+                    _ploo_vols[:, 0],
+                    _ploo_vols[:, 1],
                     marker='o',
                     alpha=0.2,
                     label='peeled leave-one',
@@ -1173,7 +998,7 @@ class AppearDisappearPlot:
 
             plt.plot(
                 plt_xs,
-                pvols,
+                _pvols,
                 marker='o',
                 alpha=0.6,
                 label='peeled',
@@ -1183,7 +1008,7 @@ class AppearDisappearPlot:
             plt.figure(npts_fig.number)
             plt.plot(
                 plt_xs,
-                pn_chull_cts,
+                _pn_chull_cts,
                 marker='o',
                 alpha=0.6,
                 label='peeled',
@@ -1192,7 +1017,7 @@ class AppearDisappearPlot:
 
             plt.figure(bd_pt_fig.number)
             pbd_pt_arr = np.zeros(self._n_data_pts, dtype=np.int16)
-            pbd_pt_arr[pchull_idxs] = 1
+            pbd_pt_arr[_pchull_idxs] = 1
             plt.plot(
                 self._t_idx,
                 pbd_pt_arr,
@@ -1202,14 +1027,7 @@ class AppearDisappearPlot:
                 zorder=6,
                 linewidth=1)
 
-            vol_corr = get_corrcoeff(uvols, pvols)
-        else:
-            vol_corr = np.nan
-
-        if self._mp_pool is not None:
-            self._mp_pool.close()
-            self._mp_pool.join()
-            self._mp_pool = None
+        vol_corr = dss.attrs['_vbs_vol_corr']
 
         ttl = f'''
         %s
@@ -1221,7 +1039,7 @@ class AppearDisappearPlot:
         Peeling depth: {self._pl_dth}
         Peeedl-Unpeeled correlation: {vol_corr: 0.4f}
         Window size: {self._ws} {self._twt}(s)
-        Starting, ending {self._twt}(s): {ulabs[0]}, {ulabs[-1]}
+        Starting, ending {self._twt}(s): {_ulabs[0]}, {_ulabs[-1]}
         '''
 
         # chull volumes
@@ -1236,7 +1054,7 @@ class AppearDisappearPlot:
         inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))
 
         ticks = plt_xs[::inc]
-        tick_labs = ulabs[::inc][:plt_xs.shape[0]]
+        tick_labs = _ulabs[::inc][:plt_xs.shape[0]]
 
         plt.xticks(ticks, tick_labs, rotation=90)
 
@@ -1261,7 +1079,7 @@ class AppearDisappearPlot:
         inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))
 
         ticks = plt_xs[::inc]
-        tick_labs = ulabs[::inc][:plt_xs.shape[0]]
+        tick_labs = _ulabs[::inc][:plt_xs.shape[0]]
 
         plt.xticks(ticks, tick_labs, rotation=90)
 
@@ -1297,4 +1115,7 @@ class AppearDisappearPlot:
 
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()
+
+        h5_hdl.close()
+
         return

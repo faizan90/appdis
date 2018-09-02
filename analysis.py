@@ -3,14 +3,19 @@
 
 '''
 from pathlib import Path
+from functools import partial
+from multiprocessing import Pool
 
 import h5py
 import numpy as np
 import pandas as pd
 from monthdelta import monthmod
+from scipy.spatial import ConvexHull
 
 from depth_funcs import depth_ftn_mp as dftn
 
+from .misc import ret_mp_idxs
+from .cyth import get_corrcoeff
 from .selection import AppearDisappearVectorSelection as ADVS
 from .settings import AppearDisappearSettings as ADSS
 
@@ -19,10 +24,10 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
     '''Perform the appearing and disappearing events analysis
 
-    Using Tukey's depth function and dividing the time series data into
+    Using Tukey's depth function and dividing the time series into
     windows (N events per window), this class computes ratios of events
-    that have appeared or disappeared for any two given event windows with
-    respect to the test window.
+    that have appeared or disappeared for any two given time windows (with
+    respect to the test window).
 
     The time window can be a set of consecutive years or months. Events in
     test window are checked for containment inside the reference window.
@@ -53,6 +58,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         self._h5_hdl = None
         self._h5_path = None
 
+        self._mp_pool = None
+
         # Variables below are written to HDF5 file.
         # all labels must have a leading underscore.
         self._data_vars_labs = (
@@ -75,9 +82,13 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             '_out_dir',
             '_bs_flag',
             '_n_bs',
+            '_vbs_flag',
+            '_n_vbs',
             '_hdf5_flag',
             '_fh_flag',
             '_vdl',
+            '_loo_flag',
+            '_mvds',
             )
 
         self._opt_vars_labs = (
@@ -129,15 +140,30 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             '_upld_pld_bs_flg',
             )
 
+        # this doesnt need to be loaded here. The plotting needs it though.
+        self._vol_boot_vars_labs = (
+            '_ulabs',
+            '_uvols',
+            '_uloo_vols',
+            '_un_chull_cts',
+            '_uchull_idxs',
+            '_pvols',
+            '_ploo_vols',
+            '_pn_chull_cts',
+            '_pchull_idxs',
+            '_vbs_vol_corr',
+            )
+
         # sequence matters
         self._h5_ds_names = (
             'in_data',
             'settings',
             'vec_opt_vars',
             'inter_vars',
-            'app_dis_arrs',
+            'app_dis_vars',
             'dts_vars',
-            'boot_arrs',
+            'boot_vars',
+            'vol_boot_vars',
             )
 
         self._var_labs_list = (
@@ -147,7 +173,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             self._inter_vars_labs,
             self._app_dis_vars_labs,
             self._dts_vars_labs,
-            self._boot_vars_labs
+            self._boot_vars_labs,
+            self._vol_boot_vars_labs,
             )
 
         self._rsm_hdf5_flag = False
@@ -191,6 +218,10 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             assert (self._ws + 1) < self._n_data_pts, (
                 'window_size cannot be greater than the number of steps!')
 
+        if self._vdl:
+            assert self._hdf5_flag, (
+                'HDF5 output should be turned on for saving volume data!')
+
         if self.verbose:
             print('All analysis inputs verified to be correct.')
 
@@ -203,7 +234,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         self._bef_app_dis()
 
-        assert self._ann_vrfd_flag, 'Call verify first!'
+        assert self._ann_vrfd_flag, 'Inputs unverfied. Call verify first!'
 
         if self.verbose:
             print('Computing appearing and disappearing cases...')
@@ -379,7 +410,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     setattr(self, lab, dss.attrs[lab])
 
                 elif lab in var_labs:
-                    pass
+                    print(lab)
 
                 else:
                     raise KeyError(f'Unknown variable: {lab}')
@@ -411,9 +442,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         assert self._app_dis_done_flag
 
         if self._hdf5_flag:
-
             self._h5_hdl.close()
-
             self._h5_hdl = None
         return
 
@@ -497,7 +526,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         elif self._twt == 'range':
             mwi = win_rng.shape[0] - self._ws
-            # max ct no implemented yet!
+            # max ct not implemented yet!
 
         self._mwr = win_rng
         self._mwi = mwi + 1
@@ -641,7 +670,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             h5_dss_list.append('dts_vars')
 
         if self._bs_flag:
-            h5_dss_list.append('boot_arrs')
+            h5_dss_list.append('boot_vars')
 
         assert h5_dss_list, 'No variables selected for writing to HDF5!'
 
@@ -653,11 +682,10 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             for lab in var_labs:
 
-                try:
-                    var = getattr(self, lab)
-
-                except AttributeError:
+                if not hasattr(self, lab):
                     continue
+
+                var = getattr(self, lab)
 
                 if isinstance(var, np.ndarray):
                     dss[lab] = var
@@ -703,6 +731,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         self._save_boundary_point_idxs('un_peel', 'window')
 
+        if self._vdl and (self._ans_dims <= self._mvds):
+            self._write_vols()
+
         return
 
     def _ut_hdf5(self):
@@ -712,7 +743,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         if not self._hdf5_flag:
             return
 
-        rds = self._h5_hdl['app_dis_arrs']
+        rds = self._h5_hdl['app_dis_vars']
 
         for rd in rds.keys():
             exec(f'rds[\'{rd}\'][...] = self.{rd}')
@@ -724,7 +755,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 exec(f'vds[\'{vd}\'][...] = self.{vd}')
 
         if self._bs_flag:
-            bsds = self._h5_hdl['boot_arrs']
+            bsds = self._h5_hdl['boot_vars']
 
             for bsd in bsds.keys():
                 exec(f'bsds[\'{bsd}\'][...] = self.{bsd}')
@@ -1061,4 +1092,316 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                     self._upld_pld_bs_ul[i, i] = 0
                     self._upld_pld_bs_ll[i, i] = 0
+        return
+
+    def _write_vols(self):
+
+        assert self._hdf5_flag and self._vdl
+        assert self._app_dis_done_flag
+
+        if (self._n_cpus > 1) and (self._ans_dims >= 4):
+
+            self._mp_pool = Pool(self._n_cpus)
+
+        if self._mp_pool is not None:
+            uvols_res = self._prep_for_vols(
+                self._h5_path, '/dts_vars/_rudts', 'in_data/_data_arr')
+
+        else:
+            uvols_res = self._prep_for_vols(self._rudts)
+
+        # underscores for consistency
+
+        (_ulabs,
+         _uvols,
+         _uloo_vols,
+         _un_chull_cts,
+         _uchull_idxs) = uvols_res
+
+        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
+            if self._mp_pool is not None:
+                pvols_res = self._prep_for_vols(
+                    self._h5_path, '/dts_vars/_rpdts', 'in_data/_data_arr')
+
+            else:
+                pvols_res = self._prep_for_vols(self._rpdts)
+
+            (_,
+             _pvols,
+             _ploo_vols,
+             _pn_chull_cts,
+             _pchull_idxs) = pvols_res
+
+            _vbs_vol_corr = get_corrcoeff(_uvols, _pvols)
+
+        else:
+            _vbs_vol_corr = np.nan
+
+        if self._mp_pool is not None:
+            self._mp_pool.close()
+            self._mp_pool.join()
+            self._mp_pool = None
+
+        if 'vol_boot_vars' in self._h5_hdl:
+            del self._h5_hdl['vol_boot_vars']
+
+        dss = self._h5_hdl.create_group('vol_boot_vars')
+
+        dss.attrs['_vbs_vol_corr'] = _vbs_vol_corr
+
+        loc_vars = locals()
+
+        str_arr_labs = ['_ulabs']
+
+        for lab in self._vol_boot_vars_labs:
+            if not lab in loc_vars:
+                continue
+
+            var = loc_vars[lab]
+
+            if isinstance(var, np.ndarray):
+                if lab in str_arr_labs:
+                    dt = h5py.special_dtype(vlen=str)
+                    str_ds = dss.create_dataset(lab, (var.shape[0],), dtype=dt)
+                    str_ds[:] = var
+
+                else:
+                    dss[lab] = var
+
+            elif isinstance(var, (str, int, float)):
+                dss.attrs[lab] = var
+
+            else:
+                raise KeyError(
+                    f'Don\'t know how to handle the variable {lab} of '
+                    f'type {type(var)}')
+
+        self._h5_hdl.flush()
+
+        if self._vbs_flag:
+            self._write_vol_bs_lims()
+        return
+
+    def _prep_for_vols(self, *args):
+
+        labs = []
+        vols = []
+        loo_vols = []
+        n_chull_cts = []
+        chull_idxs = []
+
+        if self._twt == 'year':
+            lab_cond = 1
+
+        elif self._twt == 'month':
+            lab_cond = 2
+
+        elif self._twt == 'range':
+            lab_cond = 3
+
+        idxs_rng = np.arange(self._mwi)
+
+        if self._mp_pool is not None:
+            mp_cond = True
+
+            mp_idxs = ret_mp_idxs(self._mwi, self._n_cpus)
+
+            part_ftn = partial(
+                AppearDisappearAnalysis._get_vols,
+                args=(
+                    mp_cond,
+                    lab_cond,
+                    self._ans_dims,
+                    self._loo_flag,
+                    *args))
+
+            mwi_gen = (
+                idxs_rng[mp_idxs[i]:mp_idxs[i + 1]]
+
+                for i in range(self._n_cpus))
+
+            # use of map is necessary to keep order
+            ress = self._mp_pool.map(part_ftn, mwi_gen)
+
+            for res in ress:
+                labs.append(res[0])
+                vols.append(res[1])
+                loo_vols.append(res[2])
+                n_chull_cts.append(res[3])
+                chull_idxs.append(res[4])
+
+            res = None
+            ress = None
+
+            labs = np.concatenate(labs)
+            vols = np.concatenate(vols)
+            loo_vols = np.concatenate(loo_vols)
+            n_chull_cts = np.concatenate(n_chull_cts)
+            chull_idxs = np.concatenate(chull_idxs)
+
+            chull_idxs = np.unique(chull_idxs)
+
+        else:
+            mp_cond = False
+
+            dts_arr, = args
+
+            args = (
+                mp_cond,
+                lab_cond,
+                self._ans_dims,
+                self._loo_flag,
+                dts_arr,
+                self._data_arr)
+
+            (labs,
+             vols,
+             loo_vols,
+             n_chull_cts,
+             chull_idxs) = AppearDisappearAnalysis._get_vols(idxs_rng, args)
+
+        return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
+
+    @staticmethod
+    def _get_vols(step_idxs, args):
+
+        '''Get volume of moving window convex hulls'''
+
+        mp_cond, lab_cond, dims, loo_flag = args[:4]
+
+        labs = []
+        vols = []
+        loo_vols = []
+        n_chull_cts = []
+        chull_idxs = []
+
+        if mp_cond:
+            path, dts_path, data_path = args[4:]
+
+            h5_hdl = h5py.File(path, driver='core', mode='r')
+
+            dts_arr = h5_hdl[dts_path][...]
+            data_arr = h5_hdl[data_path][...]
+
+            h5_hdl.close()
+
+        else:
+            dts_arr, data_arr = args[4:]
+
+        for i in step_idxs:
+            ct = dts_arr['cts'][i]
+
+            dts = dts_arr['dts'][i, :ct]
+            idxs = dts_arr['idx'][i, :ct]
+
+            lab_int = dts_arr['lab'][i]
+
+            if lab_cond == 1:
+                lab = lab_int
+
+            elif lab_cond == 2:
+                lab = f'{lab_int}'[:4] + '-' + f'{lab_int}'[4:]
+
+            elif lab_cond == 3:
+                lab = lab_int
+
+            labs.append(lab)
+
+            bd_idxs = idxs[dts == 1]
+
+            chull_idxs.append(bd_idxs)
+
+            hull_pts = data_arr[bd_idxs, :dims]
+            n_chull_pts = bd_idxs.shape[0]
+
+            vols.append(ConvexHull(hull_pts).volume)
+            n_chull_cts.append(n_chull_pts)
+
+            if loo_flag:
+                # remove a pt and cmpt volume
+                loo_idxs = np.ones(n_chull_pts, dtype=bool)
+                for j in range(n_chull_pts):
+                    loo_idxs[j] = False
+
+                    loo_vols.append(
+                        [i, ConvexHull(hull_pts[loo_idxs]).volume])
+
+                    loo_idxs[j] = True
+
+        loo_vols = np.array(loo_vols)
+        vols = np.array(vols)
+        labs = np.array(labs)
+        n_chull_cts = np.array(n_chull_cts)
+        chull_idxs = np.unique(np.concatenate(chull_idxs))
+
+        return (labs, vols, loo_vols, n_chull_cts, chull_idxs)
+
+    def _write_vol_bs_lims(self):
+
+        assert self._vbs_flag and (self._n_vbs > 0)
+
+        tot_rand_rng = np.unique(self._mwr)
+
+        max_gen_ct = 100
+
+        min_vol = +np.inf
+        max_vol = -np.inf
+
+        for _ in range(self._n_vbs):
+
+            gen_ct = 0
+            while gen_ct < max_gen_ct:
+                rand_seq = np.random.choice(
+                    tot_rand_rng, size=self._ws, replace=True)
+
+                gen_ct += 1
+
+                if np.all((rand_seq[1:] - rand_seq[:-1]) == 1):
+                    continue
+
+                break
+
+            else:
+                raise ValueError(
+                    'Could not generate random sequences that are unlike the '
+                    'given time sequence!')
+
+            take_idxs = np.zeros_like(self._mwr, dtype=bool)
+            for rand_t in rand_seq:
+                take_idxs = take_idxs | (self._mwr == rand_t)
+
+            assert np.any(take_idxs), 'No time steps selected!'
+
+            data_pts = self._data_arr[take_idxs, :self._ans_dims].copy('c')
+
+            dts = self._get_dts(data_pts, data_pts)
+
+            assert (dts == 1).sum() >= 2
+
+            vol = ConvexHull(data_pts[dts == 1]).volume
+
+            if vol > max_vol:
+                max_vol = vol
+
+            if vol < min_vol:
+                min_vol = vol
+
+        assert np.isfinite(min_vol)
+        assert np.isfinite(max_vol)
+
+        min_vols = np.vstack(
+            (np.arange(self._mwi), np.repeat(min_vol, self._mwi))).T
+
+        max_vols = np.vstack(
+            (np.arange(self._mwi), np.repeat(max_vol, self._mwi))).T
+
+        assert 'vol_boot_vars' in  self._h5_hdl
+
+        dss = self._h5_hdl['vol_boot_vars']
+        dss['min_vol_bs'] = min_vols
+        dss['max_vol_bs'] = max_vols
+
+        self._h5_hdl.flush()
+
         return

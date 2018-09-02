@@ -35,17 +35,21 @@ def main():
 
     in_var_file = main_dir / r'ecad_tg_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e6)
+    n_uvecs = int(1e1)
     n_cpus = 'auto'
-    n_dims = 10
+    n_dims = 4
     ws = 10  # window size
-    analysis_style = 'un_peel'
+    analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
 
+    beg_date = '1961-01-01'
+    end_date = '1981-12-31'
+
     peel_depth = 1  # greater than this are kept
-    n_boots = 0
+    n_boots = 10
+    nv_boots = 10
     hdf_flush_flag = 0
     vol_data_lev = 1
     loo_flag = False
@@ -126,6 +130,7 @@ def main():
 #             max_allowed_corr)
 #
 #         ad_ans.set_boot_strap_on_off(n_boots)
+#         ad_ans.set_volume_boot_strap_on_off(nv_boots)
 #         ad_ans.set_outputs_directory(out_dir)
 #         ad_ans.save_outputs_to_hdf5_on_off(True, hdf_flush_flag)
 #
@@ -144,17 +149,15 @@ def main():
         ad_plot.set_outputs_directory(out_dir)
         ad_plot.set_fig_props(n_ticks, cmap, app_dis_cb_max)
         ad_plot.verify()
-        ad_plot.set_n_cpus(n_cpus)  # must call after verify to take effect
 
 #         ad_plot.plot_app_dis()
-
+#
 #         if sel_idxs_flag:
 #             ad_plot.plot_sim_anneal_opt()
-#
-#         if n_dims <= 7:
-#             ad_plot.plot_volumes(loo_flag)
-#
-        ad_plot.plot_ecops()
+
+        ad_plot.plot_volumes(loo_flag)
+
+#         ad_plot.plot_ecops()
     return
 
 

@@ -115,7 +115,8 @@ class AppearDisappearVectorSelection(ADDA):
 
         self._bef_opt()
 
-        assert self._opt_vrfd_flag, 'Optimization inputs unverified!'
+        assert self._opt_vrfd_flag, (
+            'Optimization inputs unverified. Call verify first!')
 
         osel_idxs = np.random.choice(
             self._irng, size=self._ans_dims, replace=False)

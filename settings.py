@@ -12,7 +12,7 @@ class AppearDisappearSettings:
 
     '''Set parameters for the AppearDisappearAnalysis class.
 
-    This is a baseclass.
+    This is a base class.
     '''
 
     def __init__(self, verbose=True):
@@ -36,6 +36,8 @@ class AppearDisappearSettings:
         self._fh_flag = 0
 
         self._vdl = 0
+
+        self._mvds = 7  # max. volume dims
 
         self._ans_prms_set_flag = False
         self._out_dir_set_flag = False
@@ -188,6 +190,26 @@ class AppearDisappearSettings:
             print(f'Number of bootstraps: {self._n_bs}.')
         return
 
+    def set_volume_boot_strap_on_off(self, nv_boots=0):
+
+        '''Allow for volume based bootstrapping in the analysis.
+
+        Parameters
+        ----------
+        nv_boots : int
+            Number of boostrap samples to take.
+        '''
+
+        assert isinstance(nv_boots, int), 'nv_boots not an integer!'
+        assert nv_boots >= 0, 'nv_boots cannot be less than zero!'
+
+        self._vbs_flag = bool(nv_boots)
+        self._n_vbs = nv_boots
+
+        if self.verbose:
+            print(f'Number of volume bootstraps: {self._n_vbs}.')
+        return
+
     def save_outputs_to_hdf5_on_off(self, on, flush_flag):
 
         '''Allow for saving of outputs to an HDF5 file.
@@ -220,7 +242,7 @@ class AppearDisappearSettings:
 
         return
 
-    def save_volume_data_level(self, level):
+    def save_volume_data_level(self, level, loo_flag=False):
 
         '''Not sure about this one.'''
 
@@ -232,7 +254,13 @@ class AppearDisappearSettings:
         assert isinstance(level, int), 'level not an integer!'
         assert 0 <= level <= 1, 'level can only be between zero and one!'
 
+        assert isinstance(loo_flag, bool)
+
+        if not level:
+            assert not loo_flag
+
         self._vdl = level
+        self._loo_flag = loo_flag
         return
 
     def verify(self):
