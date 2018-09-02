@@ -1038,6 +1038,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
     def _set_to_zero(self, i, pl_flg):
         self._upld[i, i] = 0
 
+        self._dn_flg[i, i] = True
+
         if pl_flg:
             self._pld[i, i] = 0
 

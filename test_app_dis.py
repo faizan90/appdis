@@ -35,11 +35,11 @@ def main():
 
     in_var_file = main_dir / r'ecad_tg_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(2e4)
+    n_uvecs = int(1e6)
     n_cpus = 'auto'
-    n_dims = 6
+    n_dims = 10
     ws = 10  # window size
-    analysis_style = 'peel'
+    analysis_style = 'un_peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
@@ -58,8 +58,8 @@ def main():
     plot_flag = False
 
 #     sel_idxs_flag = True
-    take_rest_flag = True
-#     ann_flag = True
+#     take_rest_flag = True
+    ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -105,37 +105,37 @@ def main():
             del in_var_dict, in_anom_df
 
         ad_ans = AppearDisappearAnalysis()
-        ad_ans.set_data_array(tot_in_var_arr)
-        ad_ans.set_time_index(time_idx)
-        ad_ans.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
+#         ad_ans.set_data_array(tot_in_var_arr)
+#         ad_ans.set_time_index(time_idx)
+#         ad_ans.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
+#
+#         ad_ans.set_analysis_parameters(
+#             time_win_type,
+#             ws,
+#             analysis_style,
+#             peel_depth,
+#             n_cpus,
+#             sel_idxs_flag)
+#
+#         ad_ans.set_optimization_parameters(
+#             0.5,
+#             0.95,
+#             150,
+#             20000,
+#             5000,
+#             max_allowed_corr)
+#
+#         ad_ans.set_boot_strap_on_off(n_boots)
+#         ad_ans.set_outputs_directory(out_dir)
+#         ad_ans.save_outputs_to_hdf5_on_off(True, hdf_flush_flag)
+#
+#         ad_ans.save_volume_data_level(vol_data_lev)
+#
+#         ad_ans.verify()
 
-        ad_ans.set_analysis_parameters(
-            time_win_type,
-            ws,
-            analysis_style,
-            peel_depth,
-            n_cpus,
-            sel_idxs_flag)
+        ad_ans.resume_from_hdf5(hdf5_path)
 
-        ad_ans.set_optimization_parameters(
-            0.5,
-            0.95,
-            150,
-            20000,
-            5000,
-            max_allowed_corr)
-
-        ad_ans.set_boot_strap_on_off(n_boots)
-        ad_ans.set_outputs_directory(out_dir)
-        ad_ans.save_outputs_to_hdf5_on_off(True, hdf_flush_flag)
-
-        ad_ans.save_volume_data_level(vol_data_lev)
-
-        ad_ans.verify()
-
-#         ad_ans.resume_from_hdf5(hdf5_path)
-
-        ad_ans.cmpt_appear_disappear()
+#         ad_ans.cmpt_appear_disappear()
         ad_ans.terminate_analysis()
 
     if plot_flag:
