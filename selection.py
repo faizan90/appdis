@@ -100,8 +100,6 @@ class AppearDisappearVectorSelection(ADDA):
 
         ADDA._AppearDisappearData__verify(self)
 
-        assert self._opt_prms_set_flag, 'Optimization parameters not set!'
-
         self._opt_vrfd_flag = True
         return
 

@@ -386,14 +386,14 @@ class AppearDisappearPlot:
         Analysis style: {style}
         Window type: {self._twt}
         Data Type: {data_type}
-        {self._ans_dims} dimensions analyzed
-        {self._n_uvecs:1.0E} unit vectors
+        Dimensions analyzed: {self._ans_dims}
+        Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
         Spearman correlation: %0.4f
         Asymmetry 1: %1.3E
         Asymmetry 2: %1.3E
         Total steps: %d
-        %d chull points
+        Chull points: %d
         '''
 
         # entropy stuff
@@ -589,7 +589,7 @@ class AppearDisappearPlot:
         assert self._bef_plot_vars_set
 
         plt.figure(figsize=(13, 13))
-        plt.axes().set_aspect('equal', 'box')
+        plt.gca().set_aspect('equal', 'box')
 
         if self._twt == 'year':
             vals = np.unique(self._t_idx.year)
@@ -631,8 +631,8 @@ class AppearDisappearPlot:
         {arr_lab}
         Analysis style: {self._ans_stl}
         Window type: {self._twt}
-        {self._ans_dims} dimensions analyzed
-        {self._n_uvecs:1.0E} unit vectors
+        Dimensions analyzed: {self._ans_dims}
+        Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
         Window size: {self._ws} {xylab}(s)
         Starting, ending {xylab}(s): {labs[0]}, {labs[-1]}
@@ -786,9 +786,9 @@ class AppearDisappearPlot:
         {arr_lab}
         Analysis style: {self._ans_stl}
         Window type: {self._twt}
-        {self._ans_dims} dimensions analyzed
-        {self._n_uvecs:1.0E} unit vectors
-        {self._n_bs} bootstraps
+        Dimensions analyzed: {self._ans_dims}
+        Unit vectors: {self._n_uvecs:1.0E}
+        Bootstraps: {self._n_bs}
         Peeling depth: {self._pl_dth}
         Window size: {self._ws} {xylab}(s)
         Starting, ending {xylab}(s): {labs[0]}, {labs[-1]}
@@ -910,7 +910,6 @@ class AppearDisappearPlot:
 
         vols_fig = plt.figure(figsize=(20, 7))
         npts_fig = plt.figure(figsize=(20, 7))
-        bd_pt_fig = plt.figure(figsize=(40, 4))
 
         plt.figure(vols_fig.number)
 
@@ -922,7 +921,7 @@ class AppearDisappearPlot:
                 alpha=0.2,
                 label='unpeeled leave-one',
                 color='C0',
-                zorder=8)
+                zorder=6)
 
         plt.plot(
             plt_xs,
@@ -942,18 +941,18 @@ class AppearDisappearPlot:
                 min_vol_bs[:, 1],
                 alpha=0.6,
                 ls=':',
-                label='05% vol',
+                label='05% unpeeled',
                 color='C2',
-                zorder=9)
+                zorder=8)
 
             plt.plot(
                 max_vol_bs[:, 0],
                 max_vol_bs[:, 1],
                 alpha=0.6,
                 ls=':',
-                label='95% vol',
+                label='95% unpeeled',
                 color='C3',
-                zorder=9)
+                zorder=8)
 
         plt.figure(npts_fig.number)
         plt.plot(
@@ -964,18 +963,6 @@ class AppearDisappearPlot:
             label='unpeeled',
             color='C0',
             zorder=10)
-
-        plt.figure(bd_pt_fig.number)
-        ubd_pt_arr = np.zeros(self._n_data_pts, dtype=np.int16)
-        ubd_pt_arr[_uchull_idxs] = 1
-        plt.plot(
-            self._t_idx,
-            ubd_pt_arr,
-            alpha=0.6,
-            label='unpeeled',
-            color='C0',
-            zorder=10,
-            linewidth=1)
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
@@ -994,7 +981,7 @@ class AppearDisappearPlot:
                     alpha=0.2,
                     label='peeled leave-one',
                     color='C1',
-                    zorder=5)
+                    zorder=6)
 
             plt.plot(
                 plt_xs,
@@ -1003,7 +990,7 @@ class AppearDisappearPlot:
                 alpha=0.6,
                 label='peeled',
                 color='C1',
-                zorder=6)
+                zorder=10)
 
             plt.figure(npts_fig.number)
             plt.plot(
@@ -1013,19 +1000,7 @@ class AppearDisappearPlot:
                 alpha=0.6,
                 label='peeled',
                 color='C1',
-                zorder=6)
-
-            plt.figure(bd_pt_fig.number)
-            pbd_pt_arr = np.zeros(self._n_data_pts, dtype=np.int16)
-            pbd_pt_arr[_pchull_idxs] = 1
-            plt.plot(
-                self._t_idx,
-                pbd_pt_arr,
-                alpha=0.6,
-                label='peeled',
-                color='C1',
-                zorder=6,
-                linewidth=1)
+                zorder=10)
 
         vol_corr = dss.attrs['_vbs_vol_corr']
 
@@ -1034,10 +1009,11 @@ class AppearDisappearPlot:
 
         Analysis style: {self._ans_stl}
         Window type: {self._twt}
-        {self._ans_dims} dimensions analyzed
-        {self._n_uvecs:1.0E} unit vectors
+        Dimensions analyzed: {self._ans_dims}
+        Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
-        Peeedl-Unpeeled correlation: {vol_corr: 0.4f}
+        Bootstraps: {self._n_vbs}
+        Peeled-Unpeeled volume correlation: {vol_corr: 0.4f}
         Window size: {self._ws} {self._twt}(s)
         Starting, ending {self._twt}(s): {_ulabs[0]}, {_ulabs[-1]}
         '''
@@ -1093,29 +1069,5 @@ class AppearDisappearPlot:
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()
 
-        # time series of bd points
-        plt.figure(bd_pt_fig.number)
-        ttl_lab = 'Boundary points\' time series'
-
-        plt.title(ttl % ttl_lab, fontdict={'ha': 'right'}, loc='right')
-
-        plt.xlabel('Time (steps)')
-
-        plt.xticks(rotation=90)
-
-        plt.yticks([0, 1], ['Not boundary', 'Boundary'])
-
-        npts_fig.gca().yaxis.set_major_locator(
-            MaxNLocator(self._n_ticks, integer=True))
-
-        plt.grid()
-        plt.legend(framealpha=0.5).set_zorder(11)
-
-        out_fig_name = 'boundary_points_time_series.png'
-
-        plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
-        plt.close()
-
         h5_hdl.close()
-
         return

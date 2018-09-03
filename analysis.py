@@ -410,7 +410,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     setattr(self, lab, dss.attrs[lab])
 
                 elif lab in var_labs:
-                    print(lab)
+                    pass
 
                 else:
                     raise KeyError(f'Unknown variable: {lab}')
@@ -556,7 +556,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         if self._rsm_hdf5_flag:
             return
 
-        if self._orth_vecs_flag:
+        if self._opt_prms_set_flag:
             if self.verbose:
                 print('Finding least correlated vectors...')
 
@@ -1143,9 +1143,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             self._mp_pool.join()
             self._mp_pool = None
 
-        if 'vol_boot_vars' in self._h5_hdl:
-            del self._h5_hdl['vol_boot_vars']
-
         dss = self._h5_hdl.create_group('vol_boot_vars')
 
         dss.attrs['_vbs_vol_corr'] = _vbs_vol_corr
@@ -1345,8 +1342,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         max_gen_ct = 100
 
-        min_vol = +np.inf
-        max_vol = -np.inf
+        volumes = []
 
         for _ in range(self._n_vbs):
 
@@ -1377,18 +1373,20 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             dts = self._get_dts(data_pts, data_pts)
 
-            assert (dts == 1).sum() >= 2
+            assert (dts == 1).sum() >= 2, (
+                'At least two points must have a depth of one!')
 
             vol = ConvexHull(data_pts[dts == 1]).volume
 
-            if vol > max_vol:
-                max_vol = vol
+            volumes.append(vol)
 
-            if vol < min_vol:
-                min_vol = vol
+        volumes = np.array(volumes)
 
-        assert np.isfinite(min_vol)
-        assert np.isfinite(max_vol)
+        min_vol = np.percentile(volumes, 5)
+        max_vol = np.percentile(volumes, 95)
+
+        assert np.isfinite(min_vol) and np.isfinite(max_vol), (
+            'Volume is not finite!')
 
         min_vols = np.vstack(
             (np.arange(self._mwi), np.repeat(min_vol, self._mwi))).T
@@ -1396,12 +1394,12 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         max_vols = np.vstack(
             (np.arange(self._mwi), np.repeat(max_vol, self._mwi))).T
 
-        assert 'vol_boot_vars' in  self._h5_hdl
+        assert 'vol_boot_vars' in  self._h5_hdl, (
+            'Required HDF5 group does not exist!')
 
         dss = self._h5_hdl['vol_boot_vars']
         dss['min_vol_bs'] = min_vols
         dss['max_vol_bs'] = max_vols
 
         self._h5_hdl.flush()
-
         return

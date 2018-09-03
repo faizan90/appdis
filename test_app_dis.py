@@ -48,8 +48,8 @@ def main():
     end_date = '1981-12-31'
 
     peel_depth = 1  # greater than this are kept
-    n_boots = 10
-    nv_boots = 10
+    n_boots = 2
+    nv_boots = 5
     hdf_flush_flag = 0
     vol_data_lev = 1
     loo_flag = False
@@ -78,7 +78,7 @@ def main():
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt{sel_idxs_lab}{rest_lab}')
+               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
 
     print('out_dir:', out_dir)
 
@@ -109,38 +109,38 @@ def main():
             del in_var_dict, in_anom_df
 
         ad_ans = AppearDisappearAnalysis()
-#         ad_ans.set_data_array(tot_in_var_arr)
-#         ad_ans.set_time_index(time_idx)
-#         ad_ans.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
-#
-#         ad_ans.set_analysis_parameters(
-#             time_win_type,
-#             ws,
-#             analysis_style,
-#             peel_depth,
-#             n_cpus,
-#             sel_idxs_flag)
-#
-#         ad_ans.set_optimization_parameters(
-#             0.5,
-#             0.95,
-#             150,
-#             20000,
-#             5000,
-#             max_allowed_corr)
-#
-#         ad_ans.set_boot_strap_on_off(n_boots)
-#         ad_ans.set_volume_boot_strap_on_off(nv_boots)
-#         ad_ans.set_outputs_directory(out_dir)
-#         ad_ans.save_outputs_to_hdf5_on_off(True, hdf_flush_flag)
-#
-#         ad_ans.save_volume_data_level(vol_data_lev)
-#
-#         ad_ans.verify()
+        ad_ans.set_data_array(tot_in_var_arr)
+        ad_ans.set_time_index(time_idx)
+        ad_ans.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
 
-        ad_ans.resume_from_hdf5(hdf5_path)
+        ad_ans.set_analysis_parameters(
+            time_win_type,
+            ws,
+            analysis_style,
+            peel_depth,
+            n_cpus)
 
-#         ad_ans.cmpt_appear_disappear()
+        if sel_idxs_flag:
+            ad_ans.set_optimization_parameters(
+                0.5,
+                0.95,
+                150,
+                20000,
+                5000,
+                max_allowed_corr)
+
+        ad_ans.set_boot_strap_on_off(n_boots)
+        ad_ans.set_volume_boot_strap_on_off(nv_boots)
+        ad_ans.set_outputs_directory(out_dir)
+        ad_ans.save_outputs_to_hdf5_on_off(True, hdf_flush_flag)
+
+        ad_ans.save_volume_data_level(vol_data_lev)
+
+        ad_ans.verify()
+
+#         ad_ans.resume_from_hdf5(hdf5_path)
+
+        ad_ans.cmpt_appear_disappear()
         ad_ans.terminate_analysis()
 
     if plot_flag:
@@ -150,14 +150,14 @@ def main():
         ad_plot.set_fig_props(n_ticks, cmap, app_dis_cb_max)
         ad_plot.verify()
 
-#         ad_plot.plot_app_dis()
-#
-#         if sel_idxs_flag:
-#             ad_plot.plot_sim_anneal_opt()
+        ad_plot.plot_app_dis()
+
+        if sel_idxs_flag:
+            ad_plot.plot_sim_anneal_opt()
 
         ad_plot.plot_volumes(loo_flag)
 
-#         ad_plot.plot_ecops()
+        ad_plot.plot_ecops()
     return
 
 

@@ -50,8 +50,7 @@ class AppearDisappearSettings:
             window_size,
             analysis_style,
             peel_depth=0,
-            n_cpus='auto',
-            sel_ortho_vecs_flag=False):
+            n_cpus='auto'):
 
         '''Set the basic parameters for the appearing-disppearing analysis.
 
@@ -84,16 +83,10 @@ class AppearDisappearSettings:
         n_cpus : str, int
             Number of threads used by the depth function.
             If 'auto' then use one less than the maximum available threads.
-        sel_ortho_vecs_flag : bool
-            If True, bring analyze_dims number of vectors to the front whose
-            correlation among each other is the least.
-
         '''
 
         assert isinstance(window_size, int), 'window_size not an integer!'
         assert isinstance(peel_depth, int), 'peel_depth not an integer!'
-        assert isinstance(sel_ortho_vecs_flag, bool), (
-            'sel_ortho_vecs_flag not a boolean!')
 
         assert window_size > 0, 'window_size should be greater than zero!'
         assert peel_depth >= 0, (
@@ -124,7 +117,6 @@ class AppearDisappearSettings:
         self._ans_stl = analysis_style
         self._pl_dth = peel_depth
         self._n_cpus = n_cpus
-        self._orth_vecs_flag = sel_ortho_vecs_flag
 
         if self.verbose:
             print(f'Set the following analysis parameters:')
@@ -134,7 +126,6 @@ class AppearDisappearSettings:
             print(f'\tAnalysis dimensions: {self._ans_dims}')
             print(f'\tPeeling depth: {self._pl_dth}')
             print(f'\tN. cpus: {self._n_cpus}')
-            print(f'\tSelect orthogonal vectors flag: {self._orth_vecs_flag}')
 
         self._ans_prms_set_flag = True
         return
