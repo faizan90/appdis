@@ -3,7 +3,7 @@ Created on Aug 8, 2018
 
 @author: Faizan-Uni
 '''
-
+from timeit import default_timer
 import psutil
 
 import numpy as np
@@ -91,6 +91,7 @@ class AppearDisappearData:
         self._n_data_dims = data_arr.shape[1]
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Data array set with {self._n_data_pts} rows and '
                   f'{self._n_data_dims} columns.')
 
@@ -152,6 +153,7 @@ class AppearDisappearData:
         self._t_idx_t = time_index_type
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Time index set with a total length of '
                   f'{self._t_idx.shape[0]} and type: {self._t_idx_t}.')
 
@@ -196,6 +198,7 @@ class AppearDisappearData:
         self._ans_dims = uvecs.shape[1]
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Unit vectors set with {self._n_uvecs} points and '
                   f'{self._uvecs.shape[0]} dimensions.')
 
@@ -239,10 +242,13 @@ class AppearDisappearData:
                 'uvecs have more columns than those of data_arr!')
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Generating {n_uvecs} unit vectors with {n_uvec_dims} '
                   f'dimensions using {n_cpus} threads...')
 
+        begt = default_timer()
         uvecs = gen_usph_vecs(n_uvecs, n_uvec_dims, n_cpus)
+        tott = default_timer() - begt
 
         self._uvecs = uvecs
         self._n_uvecs = uvecs.shape[0]
@@ -251,7 +257,7 @@ class AppearDisappearData:
         self._uvecs.flags.writeable = self._mtbl_flag
 
         if self.verbose:
-            print(f'Done generating unit vectors.')
+            print(f'Done generating unit vectors in {tott: 0.3f} secs.')
 
         self._uvecs_set_flag = True
         return
@@ -282,6 +288,7 @@ class AppearDisappearData:
             'unit vectors have magnitudes unequal to one!')
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('All data inputs verified to be correct.')
 
         self._data_vrfd_flag = True

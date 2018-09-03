@@ -3,6 +3,8 @@ Created on Aug 22, 2018
 
 @author: Faizan-Uni
 '''
+from timeit import default_timer
+
 import numpy as np
 
 from .data import AppearDisappearData as ADDA
@@ -85,6 +87,16 @@ class AppearDisappearVectorSelection(ADDA):
         self._mwocis = maximum_without_change_iterations
         self._mac = maximum_allowed_correlation
 
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print(f'Set the following optimzation parameters:')
+            print(f'\tInitial annealing temperature: {self._iat}')
+            print(f'\tTemperature reduction alpha: {self._tra}')
+            print(f'\tUpdate iteration no: {self._uaein}')
+            print(f'\tMax. iterations: {self._mis}')
+            print(f'\tMax without change iterations: {self._mwocis}')
+            print(f'\tMax allowed correlation: {self._mac}')
+
         self._opt_prms_set_flag = True
         return
 
@@ -100,6 +112,10 @@ class AppearDisappearVectorSelection(ADDA):
 
         ADDA._AppearDisappearData__verify(self)
 
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('All optimization inputs verified to be correct.')
+
         self._opt_vrfd_flag = True
         return
 
@@ -110,6 +126,10 @@ class AppearDisappearVectorSelection(ADDA):
         combinations. The number of vectors considered at any given iteration
         is equal to the dimensions of the unit vectors.
         '''
+
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('Finding most uncorrelated vectors...')
 
         self._bef_opt()
 
@@ -132,6 +152,8 @@ class AppearDisappearVectorSelection(ADDA):
         cwoci = 0
         i = 0
         ctp = self._iat
+
+        begt = default_timer()
 
         if self._ans_dims == self._irng.shape[0]:
             # no need to optimize
@@ -199,6 +221,8 @@ class AppearDisappearVectorSelection(ADDA):
             ci += 1
             i = i + 1
 
+        tott = default_timer() - begt
+
         assert np.all(np.isclose(
             old_corr_arr, self._acorr_arr[osel_idxs][:, osel_idxs])), (
                 'This should not happen!')
@@ -225,6 +249,10 @@ class AppearDisappearVectorSelection(ADDA):
         self._smovs = np.array(min_obj_vals)
         self._sars = np.array(acc_rates)
 
+        if self.verbose:
+            print(f'Done finding most uncorrelated vectors in '
+                  f'{tott: 0.3f} secs.')
+
         self._gened_idxs_flag = True
         return
 
@@ -248,7 +276,8 @@ class AppearDisappearVectorSelection(ADDA):
 
         '''Prepare variables required by the optimization.'''
 
-        assert self._opt_vrfd_flag, 'Optimization inputs unverified!'
+        assert self._opt_vrfd_flag, (
+            'Optimization inputs unverified. Call verify first!')
 
         # don't use this for anything else except this optimization
         self._acorr_arr = np.abs(np.corrcoef(self._data_arr.T))

@@ -119,6 +119,7 @@ class AppearDisappearSettings:
         self._n_cpus = n_cpus
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Set the following analysis parameters:')
             print(f'\tWindow size: {self._ws}')
             print(f'\tTime window type: {self._twt}')
@@ -156,6 +157,7 @@ class AppearDisappearSettings:
         self._out_dir = out_dir
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Set analysis outputs directory to:', str(out_dir))
 
         self._out_dir_set_flag = True
@@ -178,6 +180,7 @@ class AppearDisappearSettings:
         self._n_bs = n_boots
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Number of bootstraps: {self._n_bs}.')
         return
 
@@ -198,6 +201,7 @@ class AppearDisappearSettings:
         self._n_vbs = nv_boots
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Number of volume bootstraps: {self._n_vbs}.')
         return
 
@@ -229,6 +233,7 @@ class AppearDisappearSettings:
         self._fh_flag = flush_flag
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print(f'Write to HDF5 flag: {self._hdf5_flag}.')
 
         return
@@ -252,6 +257,12 @@ class AppearDisappearSettings:
 
         self._vdl = level
         self._loo_flag = loo_flag
+
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print(f'Set the following volume data level parameters:')
+            print(f'\tVolume data level: {self._vdl}')
+            print(f'\tLeave one out flag: {self._loo_flag}')
         return
 
     def verify(self):
@@ -273,6 +284,7 @@ class AppearDisappearSettings:
                 'peel_depth should be greater than zero!')
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('All settings parameters verified to be correct.')
 
         self._in_vrfd_flag = True

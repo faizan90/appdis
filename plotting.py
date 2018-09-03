@@ -4,6 +4,7 @@ Created on Aug 8, 2018
 @author: Faizan-Uni
 '''
 from pathlib import Path
+from timeit import default_timer
 
 import h5py
 import numpy as np
@@ -82,6 +83,7 @@ class AppearDisappearPlot:
         self._h5_path = Path(path)
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Set plotting input HDF5 path to:', str(path))
 
         self._h5_path_set_flag = True
@@ -111,6 +113,7 @@ class AppearDisappearPlot:
         self._out_dir = out_dir
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Set plotting outputs path to:', str(out_dir))
 
         self._out_dir_set_flag = True
@@ -170,6 +173,7 @@ class AppearDisappearPlot:
         self._bef_plot()
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('All plotting inputs verified to be correct.')
 
         self._plot_vrfd_flag = True
@@ -188,20 +192,36 @@ class AppearDisappearPlot:
         If bootstrapping was on then those results are also plotted.
         '''
 
+        begt = default_timer()
+
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Plotting appearing and disappearing cases...')
+
+        if self.verbose:
+            print('Plotting unpeeled case...')
 
         self._plot_app_dis(self._upld, 'upld_plot.png', 'Both unpeeled')
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
+            if self.verbose:
+                print('Plotting peeled case...')
+
             self._plot_app_dis(self._pld, 'pld_plot.png', 'Both peeled')
 
             if self._ans_stl == 'alt_peel':
+
+                if self.verbose:
+                    print('Plotting peeled-unpeeled case...')
+
                 self._plot_app_dis(
                     self._pld_upld,
                     'pld_upld_plot.png',
                     'Peeled-unpeeled')
+
+                if self.verbose:
+                    print('Plotting unpeeled-peeled case...')
 
                 self._plot_app_dis(
                     self._upld_pld,
@@ -211,8 +231,11 @@ class AppearDisappearPlot:
         if self._bs_flag:
             self._plot_bs()
 
+        tott = default_timer() - begt
+
         if self.verbose:
-            print('Done plotting appearing and disappearing cases.')
+            print(f'Done plotting appearing and disappearing cases in '
+                  f'{tott: 0.3f} secs.')
 
         return
 
@@ -242,10 +265,19 @@ class AppearDisappearPlot:
             print('Plotting moving window convex hull volumes...')
             print('Leave one-out flag:', loo_flag)
 
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('Plotting convex hull volumes...')
+
+        begt = default_timer()
+
         self._plot_vols()
 
+        tott = default_timer() - begt
+
         if self.verbose:
-            print('Done plotting moving window convex hull volumes.')
+            print(f'Done plotting moving window convex hull volumes in '
+                  f'{tott: 0.3f} secs.')
         return
 
     def plot_ecops(self):
@@ -257,8 +289,11 @@ class AppearDisappearPlot:
         assert self._plot_vrfd_flag
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Plotting empirical copulas of individual dimensions of '
                   'the input timeseries...')
+
+        begt = default_timer()
 
         poss_data_types = ['window', 'full']
 
@@ -280,15 +315,23 @@ class AppearDisappearPlot:
                 self._plot_ecops(
                     style, poss_data_type, bd_pts_gr, emp_cop_out_dir)
 
+        tott = default_timer() - begt
+
         if self.verbose:
-            print('Done plotting empirical copulas of individual '
-                  'dimensions of the input timeseries.')
+            print(f'Done plotting empirical copulas of individual dimensions '
+                  f'of the input timeseries in {tott: 0.3f} secs.')
 
         return
 
     def plot_sim_anneal_opt(self):
 
         assert hasattr(self, '_sars'), 'sel_ortho_vecs_flag was off!'
+
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('Plotting simulated annealing variables...')
+
+        begt = default_timer()
 
         # correlation matrix
         plt.figure(figsize=(10, 10))
@@ -364,6 +407,12 @@ class AppearDisappearPlot:
                 str(self._out_dir / 'sim_anneal.png'),
                 bbox_inches='tight')
             plt.close()
+
+        tott = default_timer() - begt
+
+        if self.verbose:
+            print(f'Done plotting simulated annealing variables in '
+                  f'{tott: 0.3f} secs.')
         return
 
     def _plot_ecops(self, style, data_type, bd_pts_gr, emp_cop_out_dir):
@@ -856,6 +905,9 @@ class AppearDisappearPlot:
         '''Plot appearing disappearing cases along with bootstrapping
         results'''
 
+        if self.verbose:
+            print('Plotting unpeeled bootstrap case...')
+
         self._plot_bs_case(
             self._upld,
             self._upld_bs_ul,
@@ -865,6 +917,9 @@ class AppearDisappearPlot:
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
+            if self.verbose:
+                print('Plotting peeled bootstrap case...')
+
             self._plot_bs_case(
                 self._pld,
                 self._pld_bs_ul,
@@ -873,6 +928,9 @@ class AppearDisappearPlot:
                 'Both peeled (Bootstrap)')
 
             if self._ans_stl == 'alt_peel':
+                if self.verbose:
+                    print('Plotting peeled-unpeeled bootstrap case...')
+
                 # case 1
                 self._plot_bs_case(
                     self._pld_upld,
@@ -880,6 +938,9 @@ class AppearDisappearPlot:
                     self._pld_upld_bs_ll,
                     'bs_pld_upld_plot.png',
                     'Peeled-unpeeled (Bootstrap)')
+
+                if self.verbose:
+                    print('Plotting unpeeled-peeled bootstrap case...')
 
                 # case 2
                 self._plot_bs_case(

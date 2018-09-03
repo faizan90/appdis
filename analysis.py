@@ -4,6 +4,7 @@
 '''
 from pathlib import Path
 from functools import partial
+from timeit import default_timer
 from multiprocessing import Pool
 
 import h5py
@@ -223,6 +224,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 'HDF5 output should be turned on for saving volume data!')
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('All analysis inputs verified to be correct.')
 
         self._ann_vrfd_flag = True
@@ -232,12 +234,15 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         '''Perform the analysis after all the inputs are set and ready.'''
 
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('Computing appearing and disappearing cases...')
+
         self._bef_app_dis()
 
         assert self._ann_vrfd_flag, 'Inputs unverfied. Call verify first!'
 
-        if self.verbose:
-            print('Computing appearing and disappearing cases...')
+        begt = default_timer()
 
         pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
 
@@ -257,7 +262,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 continue
 
             if self.verbose:
-                print('\n')
                 _ridx = np.where(ris)[0]
                 rbeg_time = self._t_idx[_ridx[+0]]
                 rend_time = self._t_idx[_ridx[-1]]
@@ -352,15 +356,19 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 # after the _ut_hdf5 call because it could have broken
                 # during updating
                 self._dn_flg[i, j] = True
+            print('\n')
 
             if self._fh_flag == 1:
                 self._ut_hdf5()
 
-        self._app_dis_done_flag = True
-        self._aft_app_dis()
+        tott = default_timer() - begt
 
         if self.verbose:
-            print('Done computing appearing and disappearing cases.')
+            print(f'Done computing appearing and disappearing cases in '
+                  f'{tott: 0.3f} secs.')
+
+        self._app_dis_done_flag = True
+        self._aft_app_dis()
         return
 
     def resume_from_hdf5(self, path):
@@ -556,14 +564,12 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         if self._rsm_hdf5_flag:
             return
 
+        if self.verbose:
+            print('Preparing other inputs for appearing disappearing '
+                  'analysis...')
+
         if self._opt_prms_set_flag:
-            if self.verbose:
-                print('Finding least correlated vectors...')
-
             self.generate_vector_indicies_set()
-
-            if self.verbose:
-                print('Done finding least correlated vectors.')
 
             sel_idxs = self.get_final_vector_indicies().tolist()
 
@@ -649,6 +655,10 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     self._upld_pld_bs_flg = np.zeros_like(
                         self._upld_pld, dtype=bool, order='c')
 
+        if self.verbose:
+            print('Done preparing other inputs for appearing disappearing '
+                  'analysis...')
+
         if self._hdf5_flag:
             self._init_hdf5_ds()
         return
@@ -658,6 +668,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         '''Initialize the outputs HDF5 file and write the appropriate
         variables to it.
         '''
+
+        if self.verbose:
+            print('Initializing HDF5...')
 
         self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
         self._h5_hdl = h5py.File(
@@ -710,6 +723,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         f'type {type(var)}')
 
         self._h5_hdl.flush()
+
+        if self.verbose:
+            print('Done initializing HDF5.')
         return
 
     def _aft_app_dis(self):
@@ -718,22 +734,34 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         assert self._app_dis_done_flag
 
-        if self._fh_flag == 0:
-            self._ut_hdf5()
+        if self._hdf5_flag:
+            if self._fh_flag == 0:
+                self._ut_hdf5()
 
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+            if self.verbose:
+                print(3 * '\n', 50 * '#', sep='')
+                print('Writing point information to HDF5...')
 
-            self._save_boundary_point_idxs('peel', 'full')
-            self._save_boundary_point_idxs('peel', 'window')
+            begt = default_timer()
 
-        else:
-            self._save_boundary_point_idxs('un_peel', 'full')
+            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
-        self._save_boundary_point_idxs('un_peel', 'window')
+                self._save_boundary_point_idxs('peel', 'full')
+                self._save_boundary_point_idxs('peel', 'window')
 
-        if self._vdl and (self._ans_dims <= self._mvds):
-            self._write_vols()
+            else:
+                self._save_boundary_point_idxs('un_peel', 'full')
 
+            self._save_boundary_point_idxs('un_peel', 'window')
+
+            tott = default_timer() - begt
+
+            if self.verbose:
+                print(f'Done writing point information to HDF5 in '
+                      f'{tott: 0.3f} secs.')
+
+            if self._vdl and (self._ans_dims <= self._mvds):
+                self._write_vols()
         return
 
     def _ut_hdf5(self):
@@ -1099,6 +1127,12 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         assert self._hdf5_flag and self._vdl
         assert self._app_dis_done_flag
 
+        begt = default_timer()
+
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('Computing moving window convex hull volumes...')
+
         if (self._n_cpus > 1) and (self._ans_dims >= 4):
 
             self._mp_pool = Pool(self._n_cpus)
@@ -1175,6 +1209,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     f'type {type(var)}')
 
         self._h5_hdl.flush()
+
+        tott = default_timer() - begt
+
+        if self.verbose:
+            print(f'Done with convex hull volumes in {tott: 0.3f} secs.')
 
         if self._vbs_flag:
             self._write_vol_bs_lims()
@@ -1338,6 +1377,12 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         assert self._vbs_flag and (self._n_vbs > 0)
 
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('Computing bootstrapped volume confidence limits...')
+
+        begt = default_timer()
+
         tot_rand_rng = np.unique(self._mwr)
 
         max_gen_ct = 100
@@ -1402,4 +1447,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         dss['max_vol_bs'] = max_vols
 
         self._h5_hdl.flush()
+
+        tott = default_timer() - begt
+
+        if self.verbose:
+            print(f'Done with bootstrapped volume in {tott: 0.3f} secs.')
         return
