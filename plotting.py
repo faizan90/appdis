@@ -235,7 +235,7 @@ class AppearDisappearPlot:
 
         if self.verbose:
             print(f'Done plotting appearing and disappearing cases in '
-                  f'{tott: 0.3f} secs.')
+                  f'{tott:0.3f} secs.')
 
         return
 
@@ -262,12 +262,9 @@ class AppearDisappearPlot:
         assert self._plot_vrfd_flag
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Plotting moving window convex hull volumes...')
             print('Leave one-out flag:', loo_flag)
-
-        if self.verbose:
-            print(3 * '\n', 50 * '#', sep='')
-            print('Plotting convex hull volumes...')
 
         begt = default_timer()
 
@@ -277,7 +274,7 @@ class AppearDisappearPlot:
 
         if self.verbose:
             print(f'Done plotting moving window convex hull volumes in '
-                  f'{tott: 0.3f} secs.')
+                  f'{tott:0.3f} secs.')
         return
 
     def plot_ecops(self):
@@ -319,7 +316,7 @@ class AppearDisappearPlot:
 
         if self.verbose:
             print(f'Done plotting empirical copulas of individual dimensions '
-                  f'of the input timeseries in {tott: 0.3f} secs.')
+                  f'of the input timeseries in {tott:0.3f} secs.')
 
         return
 
@@ -412,7 +409,7 @@ class AppearDisappearPlot:
 
         if self.verbose:
             print(f'Done plotting simulated annealing variables in '
-                  f'{tott: 0.3f} secs.')
+                  f'{tott:0.3f} secs.')
         return
 
     def _plot_ecops(self, style, data_type, bd_pts_gr, emp_cop_out_dir):

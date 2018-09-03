@@ -251,7 +251,7 @@ class AppearDisappearVectorSelection(ADDA):
 
         if self.verbose:
             print(f'Done finding most uncorrelated vectors in '
-                  f'{tott: 0.3f} secs.')
+                  f'{tott:0.3f} secs.')
 
         self._gened_idxs_flag = True
         return

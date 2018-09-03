@@ -257,7 +257,7 @@ class AppearDisappearData:
         self._uvecs.flags.writeable = self._mtbl_flag
 
         if self.verbose:
-            print(f'Done generating unit vectors in {tott: 0.3f} secs.')
+            print(f'Done generating unit vectors in {tott:0.3f} secs.')
 
         self._uvecs_set_flag = True
         return

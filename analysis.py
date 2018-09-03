@@ -365,7 +365,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         if self.verbose:
             print(f'Done computing appearing and disappearing cases in '
-                  f'{tott: 0.3f} secs.')
+                  f'{tott:0.3f} secs.')
 
         self._app_dis_done_flag = True
         self._aft_app_dis()
@@ -740,7 +740,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             if self.verbose:
                 print(3 * '\n', 50 * '#', sep='')
-                print('Writing point information to HDF5...')
+                print('Writing boundary points information to HDF5...')
 
             begt = default_timer()
 
@@ -757,8 +757,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             tott = default_timer() - begt
 
             if self.verbose:
-                print(f'Done writing point information to HDF5 in '
-                      f'{tott: 0.3f} secs.')
+                print(f'Done writing boundary points information to HDF5 in '
+                      f'{tott:0.3f} secs.')
 
             if self._vdl and (self._ans_dims <= self._mvds):
                 self._write_vols()
@@ -1213,7 +1213,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         tott = default_timer() - begt
 
         if self.verbose:
-            print(f'Done with convex hull volumes in {tott: 0.3f} secs.')
+            print(f'Done with convex hull volumes in {tott:0.3f} secs.')
 
         if self._vbs_flag:
             self._write_vol_bs_lims()
@@ -1451,5 +1451,5 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         tott = default_timer() - begt
 
         if self.verbose:
-            print(f'Done with bootstrapped volume in {tott: 0.3f} secs.')
+            print(f'Done with bootstrapped volume in {tott:0.3f} secs.')
         return
