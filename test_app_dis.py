@@ -30,10 +30,10 @@ pd.options.display.width = 250
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_tg')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ncar_pp')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'ecad_tg_anomaly_pca_1961_2015.pkl'
+    in_var_file = main_dir / r'NCAR_ds010.0_19610101_20151231_dailydata_europe_ate.pkl'
 
     n_uvecs = int(1e1)
     n_cpus = 'auto'
@@ -43,9 +43,6 @@ def main():
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
-
-    beg_date = '1961-01-01'
-    end_date = '1981-12-31'
 
     peel_depth = 1  # greater than this are kept
     n_boots = 2
