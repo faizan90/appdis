@@ -17,7 +17,7 @@ from scipy.spatial import ConvexHull
 from depth_funcs import (
     depth_ftn_mp as dftn,
     cmpt_sorted_dot_prods_with_shrink as csdpws,
-    get_sdp_depths as sdftn)
+    get_sodp_depths as sdftn)
 
 from .misc import ret_mp_idxs
 from .cyth import get_corrcoeff
@@ -276,7 +276,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             refr = np.empty(
                 (self._n_uvecs, ris.sum()), dtype=np.float64, order='c')
 
-            sh_refr = refr.copy('c')
+            sh_refr = np.empty(
+                (self._n_uvecs, ris.sum()), dtype=np.float64, order='c')
 
             csdpws(
                 cd_arr[ris, :].copy('c'),
@@ -354,7 +355,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 test = np.empty(
                     (self._n_uvecs, tis.sum()), dtype=np.float64, order='c')
 
-                sh_test = test.copy('c')
+                sh_test = np.empty(
+                    (self._n_uvecs, tis.sum()), dtype=np.float64, order='c')
 
                 csdpws(
                     cd_arr[tis, :].copy('c'),
