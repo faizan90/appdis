@@ -249,7 +249,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
 
-#         cd_arr = self._data_arr[:, :self._ans_dims]
+        cd_arr = self._data_arr[:, :self._ans_dims]
 
         # computations for un peeled case are kept here. The rest are
         # passed to other functions to avoid a long loop and too much white
@@ -270,11 +270,19 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 rend_time = self._t_idx[_ridx[-1]]
                 print('Reference begin and end time:', rbeg_time, rend_time)
 
-            refr = self._spd[:, ris].copy('c')
+            refr = np.empty(
+                (self._n_uvecs, ris.sum()), dtype=np.float64, order='c')
+
+            sh_refr = refr.copy('c')
+
+            cmpt_sorted_dot_prods_with_shrink(
+                cd_arr[ris, :].copy('c'),
+                refr,
+                sh_refr,
+                self._uvecs,
+                self._n_cpus)
 
             if pl_flg or self._vdl:
-
-                sh_refr = self._shpd[:, ris].copy('c')
 
                 refr_refr_dts = self._get_dts(refr, sh_refr)
 
@@ -337,7 +345,17 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     tend_time = self._t_idx[_tidx[-1]]
                     print('\tTest begin and end time:', tbeg_time, tend_time)
 
-                sh_test = self._shpd[:, tis].copy('c')
+                test = np.empty(
+                    (self._n_uvecs, tis.sum()), dtype=np.float64, order='c')
+
+                sh_test = test.copy('c')
+
+                cmpt_sorted_dot_prods_with_shrink(
+                    cd_arr[tis, :].copy('c'),
+                    test,
+                    sh_test,
+                    self._uvecs,
+                    self._n_cpus)
 
                 self._fill_get_rat(refr, sh_test, i, j, self._upld)
 
@@ -670,40 +688,40 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             print('Done preparing other inputs for appearing disappearing '
                   'analysis...')
 
-        self._prep_sdth_vars()
+#         self._prep_sdth_vars()
 
         if self._hdf5_flag:
             self._init_hdf5_ds()
         return
 
-    def _prep_sdth_vars(self):
-
-        '''Variables for faster depth computation'''
-
-        self._spd = np.empty(
-            (self._n_uvecs, self._n_data_pts),
-            dtype=np.float64,
-            order='c')
-
-        self._shpd = self._shpd
-
-        cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
-
-        if self.verbose:
-            print(3 * '\n', 50 * '#', sep='')
-            print('Computing sorted dot products...')
-
-        begt = default_timer()
-
-        cmpt_sorted_dot_prods_with_shrink(
-            cd_arr, self._sdp, self._shdp, self._uvecs, self._n_cpus)
-
-        tott = default_timer() - begt
-
-        if self.verbose:
-            print(f'Done computing sorted dot products in {tott:0.3f} secs.')
-
-        return
+#     def _prep_sdth_vars(self):
+#
+#         '''Variables for faster depth computation'''
+#
+#         self._sdp = np.empty(
+#             (self._n_uvecs, self._n_data_pts),
+#             dtype=np.float64,
+#             order='c')
+#
+#         self._shdp = self._sdp.copy('c')
+#
+#         cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
+#
+#         if self.verbose:
+#             print(3 * '\n', 50 * '#', sep='')
+#             print('Computing sorted dot products...')
+#
+#         begt = default_timer()
+#
+#         cmpt_sorted_dot_prods_with_shrink(
+#             cd_arr, self._sdp, self._shdp, self._uvecs, self._n_cpus)
+#
+#         tott = default_timer() - begt
+#
+#         if self.verbose:
+#             print(f'Done computing sorted dot products in {tott:0.3f} secs.')
+#
+#         return
 
     def _init_hdf5_ds(self):
 
@@ -1006,7 +1024,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             bs_set = []
             for ibs in rbsis:
                 ibsis = (self._mwr == ibs) & rtmwrs
-                bs_set.append(self._spd[:, ibsis])
+                bs_set.append(self._sdp[:, ibsis])
 
             bs_set = np.concatenate(bs_set, axis=0)
 
@@ -1111,7 +1129,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         assert (style == 'peel') or (style == 'un_peel')
 
-        refr_refr_dts = self._get_dts(self._spd, self._shpd)
+        refr_refr_dts = self._get_dts(self._sdp, self._shdp)
 
         dth = max(1, self._pl_dth)  # at zero there are no bd_pts
 
@@ -1121,8 +1139,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         ret = [upld_chull_idxs, upld_chull_time_idxs]
 
         if style == 'peel':
-            refr_pld = self._spd[:, ~upld_chull_idxs].copy('c')
-            sh_refr_pld = self._shpd[:, ~upld_chull_idxs].copy('c')
+            refr_pld = self._sdp[:, ~upld_chull_idxs].copy('c')
+            sh_refr_pld = self._shdp[:, ~upld_chull_idxs].copy('c')
 
             refr_refr_pld_dts = self._get_dts(refr_pld, sh_refr_pld)
 
