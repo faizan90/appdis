@@ -40,6 +40,8 @@ class AppearDisappearPlot:
         self._poss_ans_stls = adan._poss_ans_stls
 
         self._dont_read_vars = (
+            '_spd',
+            '_shpd',
             '_out_dir',  #  it is important to ignore this
             '_dn_flg',
             '_upld_bs_flg',
