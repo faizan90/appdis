@@ -13,8 +13,8 @@ import pandas as pd
 from monthdelta import monthmod
 from scipy.spatial import ConvexHull
 
-# depth_ftn_mp as dftn,
-from depth_funcs import cmpt_sorted_dot_prods_with_shrink, get_sdp_depths
+#
+from depth_funcs import depth_ftn_mp as dftn, cmpt_sorted_dot_prods_with_shrink, get_sdp_depths
 
 from .misc import ret_mp_idxs
 from .cyth import get_corrcoeff
@@ -285,6 +285,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             if pl_flg or self._vdl:
 
                 refr_refr_dts = self._get_dts(refr, sh_refr)
+                assert np.any(refr_refr_dts)
 
                 if self._vdl:
                     ct = refr_refr_dts.shape[0]
@@ -312,6 +313,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         sh_refr_pld = sh_refr[:, refr_pldis].copy('c')
 
                         refr_pld_dts = self._get_dts(refr_pld, sh_refr_pld)
+
+                        assert np.any(refr_pld_dts)
 
                         pct = refr_pld_dts.shape[0]
 
@@ -357,7 +360,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     self._uvecs,
                     self._n_cpus)
 
-                self._fill_get_rat(refr, sh_test, i, j, self._upld)
+                assert np.any(self._fill_get_rat(refr, sh_test, i, j, self._upld))
 
                 if self._bs_flag:
                     self._cmpt_bs_lims(
@@ -376,7 +379,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     else:
                         args = [ris, tis, rpis]
 
-                    self._pld_upld_rats(refr, sh_test, refr_pld, i, j, *args)
+                    self._pld_upld_rats(
+                        refr, test, sh_test, refr_pld, i, j, *args)
 
                 if self._fh_flag == 2:
                     self._ut_hdf5()
@@ -799,29 +803,29 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             if self._fh_flag == 0:
                 self._ut_hdf5()
 
-            if self.verbose:
-                print(3 * '\n', 50 * '#', sep='')
-                print('Writing boundary points information to HDF5...')
-
-            begt = default_timer()
-
-            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-                self._save_boundary_point_idxs('peel', 'full')
-                self._save_boundary_point_idxs('peel', 'window')
-
-            else:
-                self._save_boundary_point_idxs('un_peel', 'full')
-
-            self._save_boundary_point_idxs('un_peel', 'window')
-
-            tott = default_timer() - begt
-
-            if self.verbose:
-                print(f'Done writing boundary points information to HDF5 in '
-                      f'{tott:0.3f} secs.')
-
             if self._vdl and (self._ans_dims <= self._mvds):
+                if self.verbose:
+                    print(3 * '\n', 50 * '#', sep='')
+                    print('Writing boundary points information to HDF5...')
+
+                begt = default_timer()
+
+                if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
+                    self._save_boundary_point_idxs('peel', 'full')
+                    self._save_boundary_point_idxs('peel', 'window')
+
+                else:
+                    self._save_boundary_point_idxs('un_peel', 'full')
+
+                self._save_boundary_point_idxs('un_peel', 'window')
+
+                tott = default_timer() - begt
+
+                if self.verbose:
+                    print(f'Done writing boundary points information to HDF5 in '
+                          f'{tott:0.3f} secs.')
+
                 self._write_vols()
         return
 
@@ -902,15 +906,16 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         return test_dts
 
-    def _pld_upld_rats(self, refr, test, refr_pld, idx_i, idx_j, *args):
+    def _pld_upld_rats(
+            self, refr, test, sh_test, refr_pld, idx_i, idx_j, *args):
 
         '''Just to have less white space'''
 
-        test_test_dts = self._get_dts(test, test)
+        test_test_dts = self._get_dts(test, sh_test)
         test_pldis = test_test_dts > self._pl_dth
-        test_pld = test[test_pldis, :]
+        test_pld = test[:, test_pldis].copy('c')
 
-        self._fill_get_rat(refr_pld, test_pld, idx_i, idx_j, self._pld)
+        assert np.any(self._fill_get_rat(refr_pld, test_pld, idx_i, idx_j, self._pld))
 
         if self._bs_flag:
             ris, tis, rpis = args[0], args[1], args[2]
@@ -1129,20 +1134,22 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         assert (style == 'peel') or (style == 'un_peel')
 
-        refr_refr_dts = self._get_dts(self._sdp, self._shdp)
+        cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
+
+        refr_refr_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
 
         dth = max(1, self._pl_dth)  # at zero there are no bd_pts
 
         upld_chull_idxs = refr_refr_dts <= dth
         upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
 
-        ret = [upld_chull_idxs, upld_chull_time_idxs]
+        ret = [upld_chull_idxs, upld_chull_time_idxs, ]
 
         if style == 'peel':
-            refr_pld = self._sdp[:, ~upld_chull_idxs].copy('c')
-            sh_refr_pld = self._shdp[:, ~upld_chull_idxs].copy('c')
+            refr_pld = cd_arr[~upld_chull_idxs].copy('c')
 
-            refr_refr_pld_dts = self._get_dts(refr_pld, sh_refr_pld)
+            refr_refr_pld_dts = dftn(
+                refr_pld, refr_pld, self._uvecs, self._n_cpus)
 
             pld_chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
             pld_chull_idxs[~upld_chull_idxs] = (
