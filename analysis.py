@@ -14,7 +14,10 @@ from monthdelta import monthmod
 from scipy.spatial import ConvexHull
 
 #
-from depth_funcs import depth_ftn_mp as dftn, cmpt_sorted_dot_prods_with_shrink, get_sdp_depths
+from depth_funcs import (
+    depth_ftn_mp as dftn,
+    cmpt_sorted_dot_prods_with_shrink as csdpws,
+    get_sdp_depths as sdftn)
 
 from .misc import ret_mp_idxs
 from .cyth import get_corrcoeff
@@ -275,7 +278,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             sh_refr = refr.copy('c')
 
-            cmpt_sorted_dot_prods_with_shrink(
+            csdpws(
                 cd_arr[ris, :].copy('c'),
                 refr,
                 sh_refr,
@@ -353,7 +356,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 sh_test = test.copy('c')
 
-                cmpt_sorted_dot_prods_with_shrink(
+                csdpws(
                     cd_arr[tis, :].copy('c'),
                     test,
                     sh_test,
@@ -861,7 +864,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         '''Get depths of test in refr'''
 
         if refr.shape[0] and test.shape[0]:
-            dts = get_sdp_depths(refr, test, self._n_cpus)
+            dts = sdftn(refr, test, self._n_cpus)
 #             dts = dftn(refr, test, self._uvecs, self._n_cpus)
 
         else:
@@ -1036,6 +1039,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             # FIXME: choose test_bs from shpd
             refr_bs = bs_set[:, :n_refr]
             test_bs = bs_set[:, n_refr:]  #  this should come from shpd
+            raise Exception
 
             assert test_bs.shape[1] == tmwr.shape[0]
 

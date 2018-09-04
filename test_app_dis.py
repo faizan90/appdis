@@ -35,7 +35,7 @@ def main():
 
     in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e3)
+    n_uvecs = int(1e5)
     n_cpus = 7  # 'auto'
     n_dims = 6
     ws = 10  # window size
@@ -43,6 +43,7 @@ def main():
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
+    steps = (365 * 12)
 
     peel_depth = 0  # greater than this are kept
     n_boots = 0
@@ -84,13 +85,13 @@ def main():
     if ann_flag:
         with open(in_var_file, 'rb') as _hdl:
             in_var_dict = pickle.load(_hdl)
-            in_anom_df = in_var_dict['anomaly_var_df']
+            in_anom_df = in_var_dict['anomaly_var_df'].iloc[:steps]
 
             if sel_idxs_flag:
                 tot_in_var_arr = in_anom_df.values.copy('c')
 
             else:
-                tot_in_var_arr = in_var_dict['pcs_arr'].copy('c')
+                tot_in_var_arr = in_var_dict['pcs_arr'][:steps, :].copy('c')
 
                 if take_rest_flag:
                     rest_arr = tot_in_var_arr[:, n_dims - 1:]
