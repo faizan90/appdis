@@ -30,28 +30,28 @@ pd.options.display.width = 250
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ncar_pp')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_pp')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'NCAR_ds010.0_19610101_20151231_dailydata_europe_ate.pkl'
+    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e1)
-    n_cpus = 'auto'
-    n_dims = 4
+    n_uvecs = int(1e3)
+    n_cpus = 7  # 'auto'
+    n_dims = 6
     ws = 10  # window size
-    analysis_style = 'peel'
+    analysis_style = 'un_peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
 
-    peel_depth = 1  # greater than this are kept
-    n_boots = 2
-    nv_boots = 5
+    peel_depth = 0  # greater than this are kept
+    n_boots = 0
+    nv_boots = 0
     hdf_flush_flag = 0
-    vol_data_lev = 1
+    vol_data_lev = 0
     loo_flag = False
     max_allowed_corr = 0.5
-    app_dis_cb_max = 50
+    app_dis_cb_max = 10
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -75,7 +75,7 @@ def main():
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
+               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_old_dts')
 
     print('out_dir:', out_dir)
 
@@ -152,9 +152,10 @@ def main():
         if sel_idxs_flag:
             ad_plot.plot_sim_anneal_opt()
 
-        ad_plot.plot_volumes(loo_flag)
+        if vol_data_lev:
+            ad_plot.plot_volumes(loo_flag)
 
-        ad_plot.plot_ecops()
+            ad_plot.plot_ecops()
     return
 
 

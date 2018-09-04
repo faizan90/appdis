@@ -738,29 +738,29 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             if self._fh_flag == 0:
                 self._ut_hdf5()
 
-            if self.verbose:
-                print(3 * '\n', 50 * '#', sep='')
-                print('Writing boundary points information to HDF5...')
-
-            begt = default_timer()
-
-            if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
-                self._save_boundary_point_idxs('peel', 'full')
-                self._save_boundary_point_idxs('peel', 'window')
-
-            else:
-                self._save_boundary_point_idxs('un_peel', 'full')
-
-            self._save_boundary_point_idxs('un_peel', 'window')
-
-            tott = default_timer() - begt
-
-            if self.verbose:
-                print(f'Done writing boundary points information to HDF5 in '
-                      f'{tott:0.3f} secs.')
-
             if self._vdl and (self._ans_dims <= self._mvds):
+                if self.verbose:
+                    print(3 * '\n', 50 * '#', sep='')
+                    print('Writing boundary points information to HDF5...')
+
+                begt = default_timer()
+
+                if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+
+                    self._save_boundary_point_idxs('peel', 'full')
+                    self._save_boundary_point_idxs('peel', 'window')
+
+                else:
+                    self._save_boundary_point_idxs('un_peel', 'full')
+
+                self._save_boundary_point_idxs('un_peel', 'window')
+
+                tott = default_timer() - begt
+
+                if self.verbose:
+                    print(f'Done writing boundary points information to HDF5 in '
+                          f'{tott:0.3f} secs.')
+
                 self._write_vols()
         return
 
