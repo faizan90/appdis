@@ -234,13 +234,14 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         '''Perform the analysis after all the inputs are set and ready.'''
 
-        if self.verbose:
-            print(3 * '\n', 50 * '#', sep='')
-            print('Computing appearing and disappearing cases...')
 
         self._bef_app_dis()
 
         assert self._ann_vrfd_flag, 'Inputs unverfied. Call verify first!'
+
+        if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
+            print('Computing appearing and disappearing cases...')
 
         begt = default_timer()
 
@@ -565,6 +566,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             return
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Preparing other inputs for appearing disappearing '
                   'analysis...')
 
@@ -626,7 +628,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             self._pld = self._upld.copy()
 
-            self._rpdts = self._rudts.copy()
+            if self._vdl:
+                self._rpdts = self._rudts.copy()
 
             if self._bs_flag:
                 self._pld_bs_ul = np.full(self._pld.shape, -np.inf)
@@ -670,6 +673,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         '''
 
         if self.verbose:
+            print(3 * '\n', 50 * '#', sep='')
             print('Initializing HDF5...')
 
         self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
@@ -971,6 +975,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             refr_bs = bs_set[:n_refr, :]
             test_bs = bs_set[n_refr:, :]
+            assert test_bs.shape[0] == tmwr.shape[0]
 
             self._fill_get_rat_bs(
                 refr_bs, test_bs, idx_i, idx_j, farr_ul, farr_ll, farr_flgs)
@@ -1241,7 +1246,14 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         if self._mp_pool is not None:
             mp_cond = True
 
-            mp_idxs = ret_mp_idxs(self._mwi, self._n_cpus)
+            if self._mwi < self._n_cpus:
+                idxs_rng = np.arange(self._mwi + 1)
+                mp_idxs = np.arange(self._mwi + 1)
+
+            else:
+                mp_idxs = ret_mp_idxs(self._mwi, self._n_cpus)
+
+            n_cpus = min(mp_idxs.shape[0] - 1, self._n_cpus)
 
             part_ftn = partial(
                 AppearDisappearAnalysis._get_vols,
@@ -1255,7 +1267,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             mwi_gen = (
                 idxs_rng[mp_idxs[i]:mp_idxs[i + 1]]
 
-                for i in range(self._n_cpus))
+                for i in range(n_cpus))
 
             # use of map is necessary to keep order
             ress = self._mp_pool.map(part_ftn, mwi_gen)

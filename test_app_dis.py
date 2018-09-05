@@ -35,23 +35,24 @@ def main():
 
     in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e3)
-    n_cpus = 7  # 'auto'
+    n_uvecs = int(1e4)
+    n_cpus = 'auto'
     n_dims = 6
     ws = 10  # window size
-    analysis_style = 'un_peel'
+    analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
+    steps = (365 * 12)
 
-    peel_depth = 0  # greater than this are kept
+    peel_depth = 1  # greater than this are kept
     n_boots = 0
     nv_boots = 0
     hdf_flush_flag = 0
-    vol_data_lev = 0
+    vol_data_lev = 1
     loo_flag = False
     max_allowed_corr = 0.5
-    app_dis_cb_max = 10
+    app_dis_cb_max = 7
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -73,9 +74,12 @@ def main():
     else:
         rest_lab = ''
 
+    if analysis_style == 'un_peel':
+        peel_depth = 0
+
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_old_dts')
+               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_new_dts')
 
     print('out_dir:', out_dir)
 
@@ -84,13 +88,13 @@ def main():
     if ann_flag:
         with open(in_var_file, 'rb') as _hdl:
             in_var_dict = pickle.load(_hdl)
-            in_anom_df = in_var_dict['anomaly_var_df']
+            in_anom_df = in_var_dict['anomaly_var_df'].iloc[:steps]
 
             if sel_idxs_flag:
                 tot_in_var_arr = in_anom_df.values.copy('c')
 
             else:
-                tot_in_var_arr = in_var_dict['pcs_arr'].copy('c')
+                tot_in_var_arr = in_var_dict['pcs_arr'][:steps, :].copy('c')
 
                 if take_rest_flag:
                     rest_arr = tot_in_var_arr[:, n_dims - 1:]
@@ -155,7 +159,7 @@ def main():
         if vol_data_lev:
             ad_plot.plot_volumes(loo_flag)
 
-            ad_plot.plot_ecops()
+#             ad_plot.plot_ecops()
     return
 
 

@@ -280,7 +280,7 @@ class AppearDisappearSettings:
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
             assert self._pl_dth > 0, (
-                f'For analysis_style: {self._ans_style}, '
+                f'For analysis_style: {self._ans_stl}, '
                 'peel_depth should be greater than zero!')
 
         if self.verbose:
