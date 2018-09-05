@@ -37,7 +37,7 @@ class AppearDisappearSettings:
 
         self._vdl = 0
 
-        self._mvds = 7  # max. volume dims
+        self._mvds = 8  # max. volume dims
 
         self._ans_prms_set_flag = False
         self._out_dir_set_flag = False

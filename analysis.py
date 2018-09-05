@@ -328,6 +328,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 refr_refr_dts = self._get_dts(refr, sh_refr, nris, nris)
 
+                _refr = cd_arr[ris, :].copy('c')
+                _refr_refr_dts = dftn(_refr, _refr, self._uvecs, self._n_cpus)
+
+                assert np.all(refr_refr_dts[:nris] == _refr_refr_dts)
+
                 if pl_flg:
                     refr_pldis = refr_refr_dts > self._pl_dth
                     nprefr = int(refr_pldis.sum())
@@ -344,15 +349,21 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         refr_pldis.astype(np.uint32),
                         axis=1)
 
+#                     _refr_pld = refr[:, refr_pldis[:nris]].copy('c')
+#                     _sh_refr_pld = sh_refr[:, refr_pldis[:nris]].copy('c')
+
                     refr_pld_dts = self._get_dts(
                         refr_pld, sh_refr_pld, nprefr, nprefr)
 
-                if self._vdl:
-                    ct = refr_refr_dts.shape[0]
+                    _refr_pld = _refr[refr_pldis[:nris], :].copy('c')
+                    _refr_pld_dts = dftn(_refr_pld, _refr_pld, self._uvecs, self._n_cpus)
+                    assert np.all(refr_pld_dts[:nprefr] == _refr_pld_dts)
 
-                    self._rudts['cts'][i] = ct
-                    self._rudts['dts'][i, :ct] = refr_refr_dts
-                    self._rudts['idx'][i, :ct] = np.where(ris)[0]
+                if self._vdl and (not self._rudts['cts'][i]):
+                    print('uidx_i:', i)
+                    self._rudts['cts'][i] = nris
+                    self._rudts['dts'][i, :nris] = refr_refr_dts[:nris]
+                    self._rudts['idx'][i, :nris] = np.where(ris)[0]
 
                     step_lab = ''
 
@@ -367,14 +378,16 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                     self._rudts['lab'][i] = step_lab
 
-                    if pl_flg:
-                        pct = refr_pld_dts.shape[0]
-
-                        self._rpdts['cts'][i] = pct
-                        self._rpdts['dts'][i, :pct] = refr_pld_dts
-                        self._rpdts['idx'][i, :pct] = (
-                            np.where(ris)[0][refr_pldis])
+                    if pl_flg and (not self._rpdts['cts'][i]):
+                        print('pidx_i:', i)
+                        self._rpdts['cts'][i] = nprefr
+                        self._rpdts['dts'][i, :nprefr] = refr_pld_dts[:nprefr]
+                        self._rpdts['idx'][i, :nprefr] = (
+                            np.where(ris)[0][refr_pldis[:nris]])
                         self._rpdts['lab'][i] = self._rudts['lab'][i]
+
+                    assert np.sum(refr_refr_dts[:nris] <= self._pl_dth) >= 3
+                    assert np.sum(refr_pld_dts[:nprefr] <= self._pl_dth) >= 3, refr_pld_dts[:nprefr].min()
 
                 if self._bs_flag:
                     rpis = np.zeros_like(ris, dtype=bool)
@@ -429,11 +442,32 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         self._upld_bs_flg)
 
                 if pl_flg:
+                    test_test_dts = self._get_dts(test, sh_test, ntis, ntis)
+
+                    if self._vdl and (not self._rudts['cts'][j]):
+                        print('uidx_j:', j)
+                        self._rudts['cts'][j] = ntis
+                        self._rudts['dts'][j, :ntis] = test_test_dts[:ntis]
+                        self._rudts['idx'][j, :ntis] = np.where(tis)[0]
+
+                        step_lab = ''
+
+                        if self._twt == 'year':
+                            step_lab = int(self._t_idx[tis][0].strftime('%Y'))
+
+                        elif self._twt == 'month':
+                            step_lab = int(self._t_idx[tis][0].strftime('%Y%m'))
+
+                        elif self._twt == 'range':
+                            step_lab = self._t_idx[tis][0]
+
+                        self._rudts['lab'][j] = step_lab
+
                     if not self._bs_flag:
                         args = []
 
                     else:
-                        args = [ris, tis, rpis]
+                        args = [ris, rpis]
 
                     self._pld_upld_rats(
                         refr,
@@ -449,6 +483,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         nris,
                         ntis,
                         nprefr,
+                        tis,
+                        test_test_dts,
                         *args)
 
                 if self._fh_flag == 2:
@@ -772,35 +808,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             self._init_hdf5_ds()
         return
 
-#     def _prep_sdth_vars(self):
-#
-#         '''Variables for faster depth computation'''
-#
-#         self._sdp = np.empty(
-#             (self._n_uvecs, self._n_data_pts),
-#             dtype=np.float64,
-#             order='c')
-#
-#         self._shdp = self._sdp.copy('c')
-#
-#         cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
-#
-#         if self.verbose:
-#             print(3 * '\n', 50 * '#', sep='')
-#             print('Computing sorted dot products...')
-#
-#         begt = default_timer()
-#
-#         cmpt_sorted_dot_prods_with_shrink(
-#             cd_arr, self._sdp, self._shdp, self._uvecs, self._n_cpus)
-#
-#         tott = default_timer() - begt
-#
-#         if self.verbose:
-#             print(f'Done computing sorted dot products in {tott:0.3f} secs.')
-#
-#         return
-
     def _init_hdf5_ds(self):
 
         '''Initialize the outputs HDF5 file and write the appropriate
@@ -996,11 +1003,12 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             nrefr,
             ntest,
             nprefr,
+            tis,
+            test_test_dts,
             *args):
 
         '''Just to have less white space'''
 
-        test_test_dts = self._get_dts(test, sh_test, ntest, ntest)
         test_pldis = test_test_dts > self._pl_dth
         nptest = int(test_pldis.sum())
 
@@ -1034,8 +1042,25 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             nptest,
             nprefr)
 
+        test_pld_dts = self._get_dts(
+            test_pld,
+            sh_test_pld,
+            nptest,
+            nptest)
+
+        assert np.sum(test_test_dts[:ntest] <= self._pl_dth) >= 3
+        assert np.sum(test_pld_dts[:nptest] <= self._pl_dth) >= 3, test_pld_dts[:nptest].min()
+
+        if self._vdl and (not self._rpdts['cts'][idx_j]):
+            print('pidx_j', idx_j)
+            self._rpdts['cts'][idx_j] = nptest
+            self._rpdts['dts'][idx_j, :nptest] = test_pld_dts[:nptest]
+            self._rpdts['idx'][idx_j, :nptest] = (
+                np.where(tis)[0][test_pldis[:ntest]])
+            self._rpdts['lab'][idx_j] = self._rudts['lab'][idx_j]
+
         if self._bs_flag:
-            ris, tis, rpis = args[0], args[1], args[2]
+            ris, rpis = args[0], args[1]
 
             tpis = np.zeros_like(tis, dtype=bool)
             tpis = tis | tpis
@@ -1459,7 +1484,14 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         if self._mp_pool is not None:
             mp_cond = True
 
-            mp_idxs = ret_mp_idxs(self._mwi, self._n_cpus)
+            if self._mwi < self._n_cpus:
+                idxs_rng = np.arange(self._mwi + 1)
+                mp_idxs = np.arange(self._mwi + 1)
+
+            else:
+                mp_idxs = ret_mp_idxs(self._mwi, self._n_cpus)
+
+            n_cpus = min(mp_idxs.shape[0] - 1, self._n_cpus)
 
             part_ftn = partial(
                 AppearDisappearAnalysis._get_vols,
@@ -1473,7 +1505,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             mwi_gen = (
                 idxs_rng[mp_idxs[i]:mp_idxs[i + 1]]
 
-                for i in range(self._n_cpus))
+                for i in range(n_cpus))
 
             # use of map is necessary to keep order
             ress = self._mp_pool.map(part_ftn, mwi_gen)
@@ -1569,8 +1601,16 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             hull_pts = data_arr[bd_idxs, :dims]
             n_chull_pts = bd_idxs.shape[0]
 
-            vols.append(ConvexHull(hull_pts).volume)
-            n_chull_cts.append(n_chull_pts)
+            if not n_chull_pts:
+#                 assert n_chull_pts, 'No chull points!'
+                print(f'No chull points for {i}!')
+                vols.append(np.nan)
+                n_chull_cts.append(np.nan)
+                continue
+
+            else:
+                vols.append(ConvexHull(hull_pts).volume)
+                n_chull_cts.append(n_chull_pts)
 
             if loo_flag:
                 # remove a pt and cmpt volume

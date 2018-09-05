@@ -35,21 +35,21 @@ def main():
 
     in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e5)
-    n_cpus = 7  # 'auto'
+    n_uvecs = int(1e4)
+    n_cpus = 'auto'
     n_dims = 6
     ws = 10  # window size
-    analysis_style = 'un_peel'
+    analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
-    steps = (365 * 100)
+    steps = (365 * 12)
 
     peel_depth = 1  # greater than this are kept
     n_boots = 0
     nv_boots = 0
-    hdf_flush_flag = 2
-    vol_data_lev = 0
+    hdf_flush_flag = 0
+    vol_data_lev = 1
     loo_flag = False
     max_allowed_corr = 0.5
     app_dis_cb_max = 7
@@ -61,7 +61,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-#     ann_flag = True
+    ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -159,7 +159,7 @@ def main():
         if vol_data_lev:
             ad_plot.plot_volumes(loo_flag)
 
-            ad_plot.plot_ecops()
+#             ad_plot.plot_ecops()
     return
 
 
