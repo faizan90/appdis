@@ -12,6 +12,9 @@ cimport numpy as np
 ctypedef double DT_D
 ctypedef unsigned long DT_UL
 
+cdef extern from 'math.h' nogil:
+    cdef DT_D NAN
+
 
 cdef DT_D get_mean(DT_D[:] in_arr) nogil:
 
@@ -140,3 +143,60 @@ cpdef np.ndarray get_2d_rel_hist(
             hist_arr[i, j] = hist_arr[i, j] / tot_pts
 
     return np.asarray(hist_arr)
+
+
+cpdef void copy_arr(
+        const DT_D[:, ::1] in_arr, 
+              DT_D[:, ::1] out_arr,
+        const DT_UL[::1] true_idxs,
+        const DT_UL axis,
+        ) except +:
+
+    '''A function to copy a subset of values from a big array to a smaller one
+    based on where ever true_idxs is non-zero. 
+    '''
+
+    cdef:
+        Py_ssize_t i, j, ctr
+
+        DT_UL cols = in_arr.shape[1]
+        DT_UL in_rows = in_arr.shape[0]
+        DT_UL out_rows = out_arr.shape[0]
+
+    assert 0 <= axis <= 1
+
+    if axis == 0:
+        assert in_rows == true_idxs.shape[0]
+        assert cols == out_arr.shape[1]
+
+        ctr = 0
+        for i in range(in_rows):
+            if not true_idxs[i]:
+                continue
+
+            for j in range(cols):
+                out_arr[ctr, j] = in_arr[i, j]
+
+            ctr += 1
+
+        for i in range(ctr, out_rows):
+            for j in range(cols):
+                out_arr[i, j] = NAN
+
+    elif axis == 1:
+        assert cols == true_idxs.shape[0]
+        assert in_rows == out_rows
+
+        for i in range(in_rows):
+            ctr = 0
+            for j in range(cols):
+                if not true_idxs[j]:
+                    continue
+
+                out_arr[i, ctr] = in_arr[i, j]
+
+                ctr = ctr + 1
+
+            for j in range(ctr, cols):
+                out_arr[i, j] = NAN
+    return

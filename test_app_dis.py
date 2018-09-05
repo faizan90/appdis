@@ -43,16 +43,16 @@ def main():
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
-    steps = (365 * 12)
+    steps = (365 * 100)
 
-    peel_depth = 0  # greater than this are kept
+    peel_depth = 1  # greater than this are kept
     n_boots = 0
     nv_boots = 0
-    hdf_flush_flag = 0
+    hdf_flush_flag = 2
     vol_data_lev = 0
     loo_flag = False
     max_allowed_corr = 0.5
-    app_dis_cb_max = 10
+    app_dis_cb_max = 7
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -61,7 +61,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-    ann_flag = True
+#     ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -73,6 +73,9 @@ def main():
         rest_lab = '_rest'
     else:
         rest_lab = ''
+
+    if analysis_style == 'un_peel':
+        peel_depth = 0
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
