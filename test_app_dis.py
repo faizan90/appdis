@@ -30,10 +30,10 @@ pd.options.display.width = 250
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_pp')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_tg_reshaped\stn_11')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
+    in_var_file = main_dir / r'pca_11_reshaped.pkl'
 
     n_uvecs = int(1e4)
     n_cpus = 'auto'
@@ -43,7 +43,7 @@ def main():
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
-    steps = (365 * 12)
+    steps = (365 * 100)
 
     peel_depth = 1  # greater than this are kept
     n_boots = 0
@@ -52,7 +52,7 @@ def main():
     vol_data_lev = 1
     loo_flag = False
     max_allowed_corr = 0.5
-    app_dis_cb_max = 7
+    app_dis_cb_max = 80
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -79,7 +79,7 @@ def main():
 
     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_new_dts')
+               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
 
     print('out_dir:', out_dir)
 
@@ -135,7 +135,7 @@ def main():
         ad_ans.set_outputs_directory(out_dir)
         ad_ans.save_outputs_to_hdf5_on_off(True, hdf_flush_flag)
 
-        ad_ans.save_volume_data_level(vol_data_lev)
+        ad_ans.save_volume_data_level(vol_data_lev, loo_flag)
 
         ad_ans.verify()
 
@@ -157,7 +157,7 @@ def main():
             ad_plot.plot_sim_anneal_opt()
 
         if vol_data_lev:
-            ad_plot.plot_volumes(loo_flag)
+            ad_plot.plot_volumes()
 
 #             ad_plot.plot_ecops()
     return

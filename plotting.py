@@ -239,32 +239,20 @@ class AppearDisappearPlot:
 
         return
 
-    def plot_volumes(self, loo_flag=False):
+    def plot_volumes(self):
 
         '''Plot the convex hull volumes of every window used in the analysis.
-
-        Parameters
-        ----------
-        loo_flag : bool
-            If True then leave one point out of all the points in the convex
-            hull and compute and plot volume. This helps to detect points that
-            are too far away and by removing them the hull volume drops
-            significantly.
         '''
 
         assert self._ans_dims <= self._mvds, (
             f'More than {self._mvds}D volume computation not supported!')
-
-        assert isinstance(loo_flag, bool)
-
-        self._loo_flag = loo_flag
 
         assert self._plot_vrfd_flag
 
         if self.verbose:
             print(3 * '\n', 50 * '#', sep='')
             print('Plotting moving window convex hull volumes...')
-            print('Leave one-out flag:', loo_flag)
+            print('Leave one-out flag:', self._loo_flag)
 
         begt = default_timer()
 
@@ -424,7 +412,7 @@ class AppearDisappearPlot:
             probs_arr[:, i] = (
                 rankdata(self._data_arr[:, i]) / (self._n_data_pts + 1))
 
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(7, 7))
 
         ttl = f'''
         %s
