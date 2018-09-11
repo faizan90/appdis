@@ -234,7 +234,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         '''Perform the analysis after all the inputs are set and ready.'''
 
-
         self._bef_app_dis()
 
         assert self._ann_vrfd_flag, 'Inputs unverfied. Call verify first!'
@@ -924,7 +923,12 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         n_refr = rmwr.shape[0]
 
-        n_rbsis = np.unique(rmwr).shape[0] + np.unique(tmwr).shape[0]
+        unq_rmwrs = np.unique(rmwr)
+        unq_tmwrs = np.unique(tmwr)
+
+        unq_rtmwrs = np.concatenate((unq_rmwrs, unq_tmwrs))
+
+        n_rbsis = unq_rmwrs.shape[0] + unq_tmwrs.shape[0]
 
         unacc_rseq = []
         for wi in rmwr:
@@ -941,8 +945,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             unacc_tseq.append(wi)
 
         unacc_seq = unacc_rseq + unacc_tseq
-
-        unq_rtmwrs = np.unique(np.concatenate((rmwr, tmwr)))
 
         bs_ctr = 0
         unacc_seq_ctr = 0
@@ -975,10 +977,13 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             refr_bs = bs_set[:n_refr, :]
             test_bs = bs_set[n_refr:, :]
-            assert test_bs.shape[0] == tmwr.shape[0]
+
+            # this assert wont hold in case of leap years
+#             assert test_bs.shape[0] == tmwr.shape[0]
 
             self._fill_get_rat_bs(
                 refr_bs, test_bs, idx_i, idx_j, farr_ul, farr_ll, farr_flgs)
+
             bs_ctr += 1
         return
 
@@ -1463,5 +1468,5 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         tott = default_timer() - begt
 
         if self.verbose:
-            print(f'Done with bootstrapped volume in {tott:0.3f} secs.')
+            print(f'Done with bootstrapped volumes in {tott:0.3f} secs.')
         return

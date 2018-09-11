@@ -30,27 +30,27 @@ pd.options.display.width = 250
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_tg_reshaped\stn_11')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_pp')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'pca_11_reshaped.pkl'
+    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
 
-    n_uvecs = int(1e4)
+    n_uvecs = int(1e3)
     n_cpus = 'auto'
-    n_dims = 6
+    n_dims = 4
     ws = 10  # window size
     analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
-    steps = (365 * 100)
+    steps = (365 * 12)
 
     peel_depth = 1  # greater than this are kept
-    n_boots = 0
-    nv_boots = 0
-    hdf_flush_flag = 0
+    n_boots = 10
+    nv_boots = 10
+    hdf_flush_flag = 1
     vol_data_lev = 1
-    loo_flag = False
+    loo_flag = True
     max_allowed_corr = 0.5
     app_dis_cb_max = 80
 
@@ -153,13 +153,15 @@ def main():
 
         ad_plot.plot_app_dis()
 
+        ad_plot.plot_ans_dims()
+
         if sel_idxs_flag:
             ad_plot.plot_sim_anneal_opt()
 
         if vol_data_lev:
             ad_plot.plot_volumes()
 
-#             ad_plot.plot_ecops()
+            ad_plot.plot_ecops()
     return
 
 

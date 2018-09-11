@@ -412,7 +412,7 @@ class AppearDisappearPlot:
             probs_arr[:, i] = (
                 rankdata(self._data_arr[:, i]) / (self._n_data_pts + 1))
 
-        plt.figure(figsize=(7, 7))
+        plt.figure(figsize=(5, 5))
 
         ttl = f'''
         %s
@@ -1116,4 +1116,43 @@ class AppearDisappearPlot:
         plt.close()
 
         h5_hdl.close()
+        return
+
+    def plot_ans_dims(self):
+
+        _, axs = plt.subplots(
+            nrows=self._ans_dims, ncols=1, figsize=(20, 8), sharex=True)
+
+        ttl = f'''
+        Analysed dimensions time series comparison
+
+        Analysis style: {self._ans_stl}
+        Window type: {self._twt}
+        Dimensions analyzed: {self._ans_dims}
+        Unit vectors: {self._n_uvecs:1.0E}
+        Peeling depth: {self._pl_dth}
+        Window size: {self._ws} {self._twt}(s)
+        '''
+
+        for i in range(self._ans_dims):
+            ax = axs[i]
+
+            ax.plot(
+                self._data_arr[:, i],
+                alpha=0.7,
+                lw=0.5,
+                label=f'Dim.: {i + 1:02d}')
+
+            ax.grid()
+            ax.legend(loc=1)
+
+        ax.set_xlabel('Time step')
+
+        axs[0].set_title(ttl, fontdict={'ha': 'right'}, loc='right')
+
+        plt.savefig(
+            str(self._out_dir / 'ans_dims_time_series.png'),
+            bbox_inches='tight')
+
+        plt.close()
         return
