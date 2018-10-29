@@ -161,8 +161,8 @@ class AppearDisappearPlot:
 
         '''Verify that all the inputs are correct.
 
-        NOTE:
-        -----
+        NOTE
+        ----
             These are just some additional checks. This function should
             always be called after all the inputs are set and ready.
         '''
@@ -701,7 +701,7 @@ class AppearDisappearPlot:
             out_fig_name,
             arr_lab):
 
-        '''Plot the appearing disappearing cases with boot strapping'''
+        '''Plot the appearing disappearing cases with boot-strapping'''
 
         assert self._bef_plot_vars_set
 

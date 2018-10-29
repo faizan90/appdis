@@ -36,10 +36,10 @@ def main():
 
     in_var_file = main_dir / r'neckar_norm_cop_infill_discharge_1950_2017_20180716.csv'
 
-    n_uvecs = int(5e4)
+    n_uvecs = int(5e2)
     n_cpus = 'auto'
     n_dims = 6
-    ws = 20  # window size
+    ws = 10  # window size
     analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
@@ -50,14 +50,14 @@ def main():
     time_fmt = '%Y-%m-%d'
     beg_date = '1950-01-01'
     end_date = '2017-12-31'
-    stn = 427
+    stn = 454
 
     peel_depth = 1  # greater than this are kept
     n_boots = 0
     nv_boots = 0
     hdf_flush_flag = 1
     vol_data_lev = 1
-    loo_flag = False
+    loo_flag = True
     max_allowed_corr = 0.5
     app_dis_cb_max = 30
 
@@ -92,7 +92,7 @@ def main():
 
     out_dir = (f'homog_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
+               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_{stn}')
 
     print('out_dir:', out_dir)
 

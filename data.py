@@ -266,8 +266,8 @@ class AppearDisappearData:
 
         '''Verify that all the inputs are correct.
 
-        NOTE:
-        -----
+        NOTE
+        ----
             These are just some additional checks. This function should
             always be called after all the inputs are set and ready.
         '''

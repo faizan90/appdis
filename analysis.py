@@ -189,8 +189,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         '''Verify that all the inputs are correct.
 
-        NOTE:
-        -----
+        NOTE
+        ----
             These are just some additional checks. This function should be
             always called after all the inputs are set and ready.
         '''
@@ -356,6 +356,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 # after the _ut_hdf5 call because it could have broken
                 # during updating
                 self._dn_flg[i, j] = True
+
             print('\n')
 
             if self._fh_flag == 1:
