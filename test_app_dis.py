@@ -14,7 +14,8 @@ import pandas as pd
 
 from appdis import (
     AppearDisappearAnalysis,
-    AppearDisappearPlot)
+    AppearDisappearPlot,
+    cnvt_ser_to_mult_dims_df)
 
 np.set_printoptions(
     precision=3,
@@ -30,29 +31,35 @@ pd.options.display.width = 250
 
 def main():
 
-    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\moving_window_volumes_test_01\ecad_pp')
+    main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\homogeneity_depth_tests')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'ecad_pp_anomaly_pca_1961_2015.pkl'
+    in_var_file = main_dir / r'neckar_norm_cop_infill_discharge_1950_2017_20180716.csv'
 
-    n_uvecs = int(1e3)
+    n_uvecs = int(5e4)
     n_cpus = 'auto'
-    n_dims = 4
-    ws = 10  # window size
+    n_dims = 6
+    ws = 20  # window size
     analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
-    steps = (365 * 12)
+    steps = (365 * 100)
+
+    sep = ';'
+    time_fmt = '%Y-%m-%d'
+    beg_date = '1950-01-01'
+    end_date = '2017-12-31'
+    stn = 427
 
     peel_depth = 1  # greater than this are kept
-    n_boots = 10
-    nv_boots = 10
+    n_boots = 0
+    nv_boots = 0
     hdf_flush_flag = 1
     vol_data_lev = 1
-    loo_flag = True
+    loo_flag = False
     max_allowed_corr = 0.5
-    app_dis_cb_max = 80
+    app_dis_cb_max = 30
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -66,18 +73,24 @@ def main():
 
     if sel_idxs_flag:
         sel_idxs_lab = '_sel_idxs'
+
     else:
         sel_idxs_lab = ''
 
     if take_rest_flag:
         rest_lab = '_rest'
+
     else:
         rest_lab = ''
 
     if analysis_style == 'un_peel':
         peel_depth = 0
 
-    out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
+#     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
+#                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
+#                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
+
+    out_dir = (f'homog_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
 
@@ -86,28 +99,37 @@ def main():
     hdf5_path = Path(out_dir) / 'app_dis_ds.hdf5'
 
     if ann_flag:
-        with open(in_var_file, 'rb') as _hdl:
-            in_var_dict = pickle.load(_hdl)
-            in_anom_df = in_var_dict['anomaly_var_df'].iloc[:steps]
+#         with open(in_var_file, 'rb') as _hdl:
+#             in_var_dict = pickle.load(_hdl)
+#             in_anom_df = in_var_dict['anomaly_var_df'].iloc[:steps]
+#
+#             if sel_idxs_flag:
+#                 tot_in_var_arr = in_anom_df.values.copy('c')
+#
+#             else:
+#                 tot_in_var_arr = in_var_dict['pcs_arr'][:steps, :].copy('c')
+#
+#                 if take_rest_flag:
+#                     rest_arr = tot_in_var_arr[:, n_dims - 1:]
+#                     rest_arr = (rest_arr ** 2).sum(axis=1) ** 0.5
+#                     rest_arr = rest_arr.reshape(-1, 1)
+#
+#                     tot_in_var_arr = np.hstack(
+#                         (tot_in_var_arr[:, :n_dims - 1], rest_arr))
+#
+#                     assert tot_in_var_arr.shape[1] == n_dims
+#
+#             time_idx = in_anom_df.index
+#             del in_var_dict, in_anom_df
 
-            if sel_idxs_flag:
-                tot_in_var_arr = in_anom_df.values.copy('c')
+        in_hom_df = pd.read_csv(in_var_file, index_col=0, sep=sep)
+        in_hom_df.index = pd.to_datetime(in_hom_df.index, format=time_fmt)
+        in_hom_ser = in_hom_df[str(stn)]
 
-            else:
-                tot_in_var_arr = in_var_dict['pcs_arr'][:steps, :].copy('c')
+        res_hom_df = cnvt_ser_to_mult_dims_df(in_hom_ser, n_dims)
 
-                if take_rest_flag:
-                    rest_arr = tot_in_var_arr[:, n_dims - 1:]
-                    rest_arr = (rest_arr ** 2).sum(axis=1) ** 0.5
-                    rest_arr = rest_arr.reshape(-1, 1)
-
-                    tot_in_var_arr = np.hstack(
-                        (tot_in_var_arr[:, :n_dims - 1], rest_arr))
-
-                    assert tot_in_var_arr.shape[1] == n_dims
-
-            time_idx = in_anom_df.index
-            del in_var_dict, in_anom_df
+        tot_in_var_arr = res_hom_df.values.copy('c')
+        time_idx = res_hom_df.index
 
         ad_ans = AppearDisappearAnalysis()
         ad_ans.set_data_array(tot_in_var_arr)
@@ -161,7 +183,7 @@ def main():
         if vol_data_lev:
             ad_plot.plot_volumes()
 
-            ad_plot.plot_ecops()
+#             ad_plot.plot_ecops()
     return
 
 
