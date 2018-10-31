@@ -71,7 +71,6 @@ class AppearDisappearPlot:
         path : str or pathlib.Path
             Path to the input HDF5 file. This file is the same as the one
             written by the AppearDisappearAnalysis class.
-
         '''
 
         assert isinstance(path, (str, Path))
@@ -946,11 +945,11 @@ class AppearDisappearPlot:
 
         dss = h5_hdl['vol_boot_vars']
 
-        _ulabs = dss['_ulabs']
-        _uvols = dss['_uvols']
-        _uloo_vols = dss['_uloo_vols']
-        _un_chull_cts = dss['_un_chull_cts']
-        _uchull_idxs = dss['_uchull_idxs']
+        _ulabs = dss['_ulabs'][...]
+        _uvols = dss['_uvols'][...]
+        _uloo_vols = dss['_uloo_vols'][...]
+        _un_chull_cts = dss['_un_chull_cts'][...]
+        _uchull_idxs = dss['_uchull_idxs'][...]
 
         plt_xs = np.arange(len(_ulabs))
 
@@ -962,89 +961,89 @@ class AppearDisappearPlot:
         if self._loo_flag:
             plt.scatter(
                 _uloo_vols[:, 0],
-                _uloo_vols[:, 1],
+                _uloo_vols[:, 1] / _uloo_vols[0, 1],
                 marker='o',
                 alpha=0.2,
-                label='unpeeled leave-one',
+                label=f'unpeeled leave-one ({_uloo_vols[0, 1]:6.3E})',
                 color='C0',
                 zorder=6)
 
         plt.plot(
             plt_xs,
-            _uvols,
+            _uvols / _uvols[0],
             marker='o',
             alpha=0.6,
-            label='unpeeled',
+            label=f'unpeeled ({_uvols[0]:6.3E})',
             color='C0',
             zorder=10)
 
         if 'min_vol_bs' in dss:
-            min_vol_bs = dss['min_vol_bs']
-            max_vol_bs = dss['max_vol_bs']
+            min_vol_bs = dss['min_vol_bs'][...]
+            max_vol_bs = dss['max_vol_bs'][...]
 
             plt.plot(
                 min_vol_bs[:, 0],
-                min_vol_bs[:, 1],
+                min_vol_bs[:, 1] / min_vol_bs[0, 1],
                 alpha=0.6,
                 ls=':',
-                label='05% unpeeled',
+                label=f'05% unpeeled ({min_vol_bs[0, 1]:6.3E})',
                 color='C2',
                 zorder=8)
 
             plt.plot(
                 max_vol_bs[:, 0],
-                max_vol_bs[:, 1],
+                max_vol_bs[:, 1] / max_vol_bs[0, 1],
                 alpha=0.6,
                 ls=':',
-                label='95% unpeeled',
+                label=f'95% unpeeled ({max_vol_bs[0, 1]:6.3E})',
                 color='C3',
                 zorder=8)
 
         plt.figure(npts_fig.number)
         plt.plot(
             plt_xs,
-            _un_chull_cts,
+            _un_chull_cts / float(_un_chull_cts[0]),
             marker='o',
             alpha=0.6,
-            label='unpeeled',
+            label=f'unpeeled ({_un_chull_cts[0]:d})',
             color='C0',
             zorder=10)
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
-            _pvols = dss['_pvols']
-            _ploo_vols = dss['_ploo_vols']
-            _pn_chull_cts = dss['_pn_chull_cts']
-            _pchull_idxs = dss['_pchull_idxs']
+            _pvols = dss['_pvols'][...]
+            _ploo_vols = dss['_ploo_vols'][...]
+            _pn_chull_cts = dss['_pn_chull_cts'][...]
+            _pchull_idxs = dss['_pchull_idxs'][...]
 
             plt.figure(vols_fig.number)
 
             if self._loo_flag:
                 plt.scatter(
                     _ploo_vols[:, 0],
-                    _ploo_vols[:, 1],
+                    _ploo_vols[:, 1] / _ploo_vols[0, 1],
                     marker='o',
-                    alpha=0.2,
-                    label='peeled leave-one',
+                    alpha=0.1,
+                    label=f'peeled leave-one ({_ploo_vols[0, 1]:6.3E})',
                     color='C1',
                     zorder=6)
 
             plt.plot(
                 plt_xs,
-                _pvols,
+                _pvols / _pvols[0],
                 marker='o',
-                alpha=0.6,
-                label='peeled',
+                alpha=0.4,
+                label=f'peeled ({_pvols[0]:6.3E})',
                 color='C1',
                 zorder=10)
 
             plt.figure(npts_fig.number)
             plt.plot(
                 plt_xs,
-                _pn_chull_cts,
+                _pn_chull_cts / float(_pn_chull_cts[0]),
                 marker='o',
                 alpha=0.6,
-                label='peeled',
+                label=f'peeled ({_pn_chull_cts[0]:d})',
                 color='C1',
                 zorder=10)
 
@@ -1070,7 +1069,7 @@ class AppearDisappearPlot:
         plt.title(ttl % ttl_lab, fontdict={'ha': 'right'}, loc='right')
 
         plt.xlabel(f'Window ({self._twt}(s))')
-        plt.ylabel(f'{self._ans_dims}D Volume')
+        plt.ylabel(f'Relative {self._ans_dims}D volume')
 
         n_tick_vals = self._mwi
         inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))
@@ -1095,7 +1094,7 @@ class AppearDisappearPlot:
         plt.title(ttl % ttl_lab, fontdict={'ha': 'right'}, loc='right')
 
         plt.xlabel(f'Window ({self._twt}(s))')
-        plt.ylabel(f'N C-hull points (-)')
+        plt.ylabel(f'Relative C-hull points\' count (-)')
 
         n_tick_vals = self._mwi
         inc = max(1, int(n_tick_vals // (self._n_ticks * 0.5)))

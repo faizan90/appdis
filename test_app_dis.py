@@ -68,7 +68,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-    ann_flag = True
+#     ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -173,9 +173,9 @@ def main():
         ad_plot.set_fig_props(n_ticks, cmap, app_dis_cb_max)
         ad_plot.verify()
 
-        ad_plot.plot_app_dis()
+#         ad_plot.plot_app_dis()
 
-        ad_plot.plot_ans_dims()
+#         ad_plot.plot_ans_dims()
 
         if sel_idxs_flag:
             ad_plot.plot_sim_anneal_opt()
