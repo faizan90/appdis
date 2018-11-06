@@ -21,9 +21,10 @@ from .cyth import get_corrcoeff, get_asymms_sample, get_2d_rel_hist
 plt.ioff()
 
 
+# TODO: add chull plots for each window. All with same xy lims.
 class AppearDisappearPlot:
 
-    '''Plot the results of AppearDisappearAnalysis saved in the HDF5 file.'''
+    '''Plot the results of AppearDisappearAnalysis, from the HDF5 file.'''
 
     def __init__(self, verbose=True):
 
@@ -54,11 +55,7 @@ class AppearDisappearPlot:
         self._h5_path_set_flag = False
         self._out_dir_set_flag = False
         self._fig_props_set_flag = False
-        self._bs_vars_loaded_flag = False
         self._bef_plot_vars_set = False
-        self._upld_pltd_flag = False
-        self._pld_pltd_flag = False
-        self._alt_pltd_flag = False
         self._plot_vrfd_flag = False
         return
 
@@ -243,8 +240,10 @@ class AppearDisappearPlot:
         '''Plot the convex hull volumes of every window used in the analysis.
         '''
 
-        assert self._ans_dims <= self._mvds, (
+        if self._ans_dims > self._mvds:
+            print(
             f'More than {self._mvds}D volume computation not supported!')
+            return
 
         assert self._plot_vrfd_flag
 
@@ -255,7 +254,10 @@ class AppearDisappearPlot:
 
         begt = default_timer()
 
-        self._plot_vols()
+        self._plot_vols(['r', 'Reference', 'refr'])
+
+        if self._rt_df_flag:
+            self._plot_vols(['t', 'Test', 'test'])
 
         tott = default_timer() - begt
 
@@ -356,7 +358,7 @@ class AppearDisappearPlot:
             acc_ax = obj_ax.twinx()
 
             plt.suptitle(
-                f'Simulated annealing results for least correlated '
+                f'Simulated annealing results for the least correlated '
                 f'vectors\' selection ({self._ans_dims} dimensions)')
 
             a1 = acc_ax.plot(
@@ -364,6 +366,7 @@ class AppearDisappearPlot:
                 color='gray',
                 alpha=0.5,
                 label='acc_rate')
+
             p1 = obj_ax.plot(
                 self._siovs,
                 color='red',
@@ -436,6 +439,7 @@ class AppearDisappearPlot:
 
         for i in range(self._ans_dims):
             probs_arr_i = probs_arr[:, i]
+
             for j in range(self._ans_dims):
                 if i >= j:
                     continue
@@ -633,6 +637,7 @@ class AppearDisappearPlot:
         elif self._twt == 'month':
             vals = np.unique(self._mwr)
             labs = []
+
             for val in vals:
                 year_idx = np.where(self._mwr == val)[0][0]
 
@@ -935,7 +940,7 @@ class AppearDisappearPlot:
                     'Unpeeled-peeled (Bootstrap)')
         return
 
-    def _plot_vols(self):
+    def _plot_vols(self, dlabs):
 
         assert self._bef_plot_vars_set
 
@@ -945,11 +950,11 @@ class AppearDisappearPlot:
 
         dss = h5_hdl['vol_boot_vars']
 
-        _ulabs = dss['_ulabs'][...]
-        _uvols = dss['_uvols'][...]
-        _uloo_vols = dss['_uloo_vols'][...]
-        _un_chull_cts = dss['_un_chull_cts'][...]
-        _uchull_idxs = dss['_uchull_idxs'][...]
+        _ulabs = dss[f'_u{dlabs[0]}labs'][...]
+        _uvols = dss[f'_u{dlabs[0]}vols'][...]
+        _uloo_vols = dss[f'_u{dlabs[0]}loo_vols'][...]
+        _un_chull_cts = dss[f'_u{dlabs[0]}n_chull_cts'][...]
+        _uchull_idxs = dss[f'_u{dlabs[0]}chull_idxs'][...]
 
         plt_xs = np.arange(len(_ulabs))
 
@@ -1011,10 +1016,10 @@ class AppearDisappearPlot:
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
-            _pvols = dss['_pvols'][...]
-            _ploo_vols = dss['_ploo_vols'][...]
-            _pn_chull_cts = dss['_pn_chull_cts'][...]
-            _pchull_idxs = dss['_pchull_idxs'][...]
+            _pvols = dss[f'_p{dlabs[0]}vols'][...]
+            _ploo_vols = dss[f'_p{dlabs[0]}loo_vols'][...]
+            _pn_chull_cts = dss[f'_p{dlabs[0]}n_chull_cts'][...]
+            _pchull_idxs = dss[f'_p{dlabs[0]}chull_idxs'][...]
 
             plt.figure(vols_fig.number)
 
@@ -1047,7 +1052,7 @@ class AppearDisappearPlot:
                 color='C1',
                 zorder=10)
 
-        vol_corr = dss.attrs['_vbs_vol_corr']
+        vol_corr = dss.attrs[f'_{dlabs[0]}vbs_vol_corr']
 
         ttl = f'''
         %s
@@ -1058,6 +1063,7 @@ class AppearDisappearPlot:
         Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
         Bootstraps: {self._n_vbs}
+        Dataset: {dlabs[1]}
         Peeled-Unpeeled volume correlation: {vol_corr: 0.4f}
         Window size: {self._ws} {self._twt}(s)
         Starting, ending {self._twt}(s): {_ulabs[0]}, {_ulabs[-1]}
@@ -1109,7 +1115,7 @@ class AppearDisappearPlot:
         plt.grid()
         plt.legend()
 
-        out_fig_name = 'chull_point_counts.png'
+        out_fig_name = f'chull_point_counts_{dlabs[2]}.png'
 
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()

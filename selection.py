@@ -12,8 +12,7 @@ from .data import AppearDisappearData as ADDA
 
 class AppearDisappearVectorSelection(ADDA):
 
-    def __init__(
-            self, verbose=True, copy_input=False, mutability=False):
+    def __init__(self, verbose=True, copy_input=False, mutability=False):
 
         ADDA.__init__(self, verbose, copy_input, mutability)
 
@@ -225,7 +224,7 @@ class AppearDisappearVectorSelection(ADDA):
 
         assert np.all(np.isclose(
             old_corr_arr, self._acorr_arr[osel_idxs][:, osel_idxs])), (
-                'This should not happen!')
+                'This was not supposed happen!')
 
         self._fidxs = np.sort(osel_idxs)
         self._fca = self._acorr_arr[self._fidxs][:, self._fidxs]
@@ -250,8 +249,9 @@ class AppearDisappearVectorSelection(ADDA):
         self._sars = np.array(acc_rates)
 
         if self.verbose:
-            print(f'Done finding most uncorrelated vectors in '
-                  f'{tott:0.3f} secs.')
+            print(
+                f'Done finding most uncorrelated vectors in '
+                f'{tott:0.3f} secs.')
 
         self._gened_idxs_flag = True
         return
@@ -260,12 +260,14 @@ class AppearDisappearVectorSelection(ADDA):
 
         assert self._gened_idxs_flag, (
             'Call generate_vector_indicies_set first!')
+
         return self._fidxs
 
     def get_final_correlations_array(self):
 
         assert self._gened_idxs_flag, (
             'Call generate_vector_indicies_set first!')
+
         return self._fca
 
     def _get_obj_ftn_val(self, corrs_arr):
@@ -280,7 +282,7 @@ class AppearDisappearVectorSelection(ADDA):
             'Optimization inputs unverified. Call verify first!')
 
         # don't use this for anything else except this optimization
-        self._acorr_arr = np.abs(np.corrcoef(self._data_arr.T))
+        self._acorr_arr = np.abs(np.corrcoef(self._refr_data_arr.T))
 
         # diagonal set to zero
         self._acorr_arr.ravel()[::self._acorr_arr.shape[0] + 1] = 0

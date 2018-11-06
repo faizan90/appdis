@@ -15,8 +15,8 @@ from scipy.spatial import ConvexHull
 
 from depth_funcs import depth_ftn_mp as dftn
 
-from .misc import ret_mp_idxs
 from .cyth import get_corrcoeff
+from .misc import ret_mp_idxs
 from .selection import AppearDisappearVectorSelection as ADVS
 from .settings import AppearDisappearSettings as ADSS
 
@@ -42,7 +42,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
     depth for each point of the test window in the reference window is
     computed. Tukey's depth funtion returns a zero for any point that is
     outside the convex hull (created by the points in the reference
-    dataset). It returns a one if a point lies on the boundary of the convex
+    dataset). It returns a one if a point lies on the convex
     hull. Let's say 10 points' depth is zero. So for this specific case,
     we have 10 appearing situations which is ten percent of the test
     window. This is the main output of this analysis. Based on the
@@ -61,16 +61,18 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         self._mp_pool = None
 
-        # Variables below are written to HDF5 file.
+        # Variables below are written to the HDF5 file.
         # all labels must have a leading underscore.
         self._data_vars_labs = (
-            '_data_arr',
+            '_refr_data_arr',
+            '_test_data_arr',
             '_t_idx',
             '_t_idx_t',
             '_uvecs',
             '_n_data_pts',
             '_n_data_dims',
             '_n_uvecs',
+            '_rt_df_flag',
             )
 
         self._sett_vars_labs = (
@@ -124,6 +126,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         self._dts_vars_labs = (
             '_rudts',
             '_rpdts',
+            '_tudts',
+            '_tpdts',
             )
 
         self._boot_vars_labs = (
@@ -141,7 +145,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             '_upld_pld_bs_flg',
             )
 
-        # this doesnt need to be loaded here. The plotting needs it though.
+        # this doesn't need to be loaded here. The plotting needs it though.
         self._vol_boot_vars_labs = (
             '_ulabs',
             '_uvols',
@@ -191,8 +195,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         NOTE
         ----
-            These are just some additional checks. This function should be
-            always called after all the inputs are set and ready.
+            These are just some additional checks. This function should
+            always be called after all the inputs are set and ready.
         '''
 
         if not self._rsm_hdf5_flag:
@@ -246,7 +250,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
 
-        cd_arr = self._data_arr[:, :self._ans_dims]
+        crefr_arr = self._refr_data_arr[:, :self._ans_dims]
+        ctest_arr = self._test_data_arr[:, :self._ans_dims]
 
         # computations for un peeled case are kept here. The rest are
         # passed to other functions to avoid a long loop and too much white
@@ -267,7 +272,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 rend_time = self._t_idx[_ridx[-1]]
                 print('Reference begin and end time:', rbeg_time, rend_time)
 
-            refr = cd_arr[ris, :].copy('c')
+            refr = crefr_arr[ris, :].copy('c')
 
             if pl_flg or self._vdl:
                 refr_refr_dts = self._get_dts(refr, refr)
@@ -296,6 +301,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     if pl_flg:
                         refr_pld_dts = self._get_dts(refr_pld, refr_pld)
                         pct = refr_pld_dts.shape[0]
+
                         self._rpdts['cts'][i] = pct
                         self._rpdts['dts'][i, :pct] = refr_pld_dts
                         self._rpdts['idx'][i, :pct] = (
@@ -304,7 +310,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 if self._bs_flag:
                     rpis = np.zeros_like(ris, dtype=bool)
-                    rpis = ris | rpis
                     rpis[ris] = refr_pldis
 
             for j in range(self._mwi):
@@ -326,15 +331,55 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     tend_time = self._t_idx[_tidx[-1]]
                     print('\tTest begin and end time:', tbeg_time, tend_time)
 
-                test = cd_arr[tis, :].copy('c')
+                test = ctest_arr[tis, :].copy('c')
 
                 self._fill_get_rat(refr, test, i, j, self._upld)
+
+                # TODO: move such stuff to another ftn
+                if pl_flg or self._vdl:
+                    test_test_dts = self._get_dts(test, test)
+                    test_pldis = test_test_dts > self._pl_dth
+                    test_pld = test[test_pldis, :]
+
+                    if (self._vdl and
+                        (self._rt_df_flag) and
+                        (not self._tudts['cts'][j])):
+
+                        ct = test_test_dts.shape[0]
+                        self._tudts['cts'][j] = ct
+                        self._tudts['dts'][j, :ct] = test_test_dts
+                        self._tudts['idx'][j, :ct] = np.where(tis)[0]
+
+                        step_lab = ''
+
+                        if self._twt == 'year':
+                            step_lab = int(
+                                self._t_idx[tis][0].strftime('%Y'))
+
+                        elif self._twt == 'month':
+                            step_lab = int(
+                                self._t_idx[tis][0].strftime('%Y%m'))
+
+                        elif self._twt == 'range':
+                            step_lab = self._t_idx[tis][0]
+
+                        self._tudts['lab'][j] = step_lab
+
+                        if pl_flg:
+                            test_pld_dts = self._get_dts(test_pld, test_pld)
+                            pct = test_pld_dts.shape[0]
+
+                            self._tpdts['cts'][j] = pct
+                            self._tpdts['dts'][j, :pct] = test_pld_dts
+                            self._tpdts['idx'][j, :pct] = (
+                                np.where(tis)[0][test_pldis])
+                            self._tpdts['lab'][j] = self._tudts['lab'][j]
 
                 if self._bs_flag:
                     self._cmpt_bs_lims(
                         ris,
                         tis,
-                        cd_arr,
+                        crefr_arr,
                         i,
                         j,
                         self._upld_bs_ul,
@@ -343,18 +388,26 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 if pl_flg:
                     if not self._bs_flag:
-                        args = []
+                        args = [ris, tis, rpis, crefr_arr]
 
                     else:
-                        args = [ris, tis, rpis, cd_arr]
+                        args = []
 
-                    self._pld_upld_rats(refr, test, refr_pld, i, j, *args)
+                    self._pld_upld_rats(
+                        refr,
+                        test,
+                        refr_pld,
+                        test_pld,
+                        test_pldis,
+                        i,
+                        j,
+                        *args)
 
                 if self._fh_flag == 2:
                     self._ut_hdf5()
 
                 # after the _ut_hdf5 call because it could have broken
-                # during updating
+                # during updating.
                 self._dn_flg[i, j] = True
 
             print('\n')
@@ -433,6 +486,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         self._out_dir = Path(self._out_dir)
 
         self._rsm_hdf5_flag = True
+
         self.verify()
 
         if self.verbose:
@@ -587,8 +641,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             assert len(fin_idxs) == self._n_data_dims
             assert np.unique(fin_idxs).shape[0] == self._n_data_dims
 
-            self._data_arr = self._data_arr[:, fin_idxs].copy('c')
-            self._data_arr.flags.writeable = self._mtbl_flag
+            self._refr_data_arr = self._refr_data_arr[:, fin_idxs].copy('c')
+            self._refr_data_arr.flags.writeable = self._mtbl_flag
+
+            self._test_data_arr = self._test_data_arr[:, fin_idxs].copy('c')
+            self._test_data_arr.flags.writeable = self._mtbl_flag
 
         self._cmpt_mw_rng()
         assert self._mw_rng_cmptd_flag, 'Moving window range not computed!'
@@ -615,9 +672,19 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             vol_dts = vol_idx.copy()
 
             self._rudts = np.array(
-                (vol_cts, vol_lab, vol_idx, vol_dts), dtype=vol_dt, order='c')
+                (vol_cts, vol_lab, vol_idx, vol_dts),
+                dtype=vol_dt,
+                order='c')
+
+            if self._rt_df_flag:
+                self._tudts = self._rudts.copy()
 
         if self._bs_flag:
+            if self._rt_df_flag:
+                raise NotImplementedError(
+                    'Bootstrapping computation not implemented in case of '
+                    'different reference and test arrays!')
+
             self._upld_bs_ul = np.full(self._upld.shape, -np.inf)
             self._upld_bs_ll = np.full(self._upld.shape, +np.inf)
 
@@ -630,6 +697,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             if self._vdl:
                 self._rpdts = self._rudts.copy()
+
+                if self._rt_df_flag:
+                    self._tpdts = self._rpdts.copy()
 
             if self._bs_flag:
                 self._pld_bs_ul = np.full(self._pld.shape, -np.inf)
@@ -749,15 +819,13 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 begt = default_timer()
 
+                stls = ['un_peel']
+                vdtypes = ['full', 'window']
+
                 if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+                    stls.append('peel')
 
-                    self._save_boundary_point_idxs('peel', 'full')
-                    self._save_boundary_point_idxs('peel', 'window')
-
-                else:
-                    self._save_boundary_point_idxs('un_peel', 'full')
-
-                self._save_boundary_point_idxs('un_peel', 'window')
+                self._save_boundary_point_idxs(stls, vdtypes)
 
                 tott = default_timer() - begt
 
@@ -822,7 +890,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         return test_dts
 
-    def _fill_get_rat_bs(self, refr, test, idx_i, idx_j, farr_ul, farr_ll, farr_flgs):
+    def _fill_get_rat_bs(
+            self, refr, test, idx_i, idx_j, farr_ul, farr_ll, farr_flgs):
 
         '''Compute the ratio of points in test that are outside of refr and
         update the ratios in the farr_ul and farr_ll (this is for
@@ -843,13 +912,18 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         return test_dts
 
-    def _pld_upld_rats(self, refr, test, refr_pld, idx_i, idx_j, *args):
+    def _pld_upld_rats(
+            self,
+            refr,
+            test,
+            refr_pld,
+            test_pld,
+            test_pldis,
+            idx_i,
+            idx_j,
+            *args):
 
         '''Just to have less white space'''
-
-        test_test_dts = self._get_dts(test, test)
-        test_pldis = test_test_dts > self._pl_dth
-        test_pld = test[test_pldis, :]
 
         self._fill_get_rat(refr_pld, test_pld, idx_i, idx_j, self._pld)
 
@@ -857,7 +931,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             ris, tis, rpis, cd_arr = args[0], args[1], args[2], args[3]
 
             tpis = np.zeros_like(tis, dtype=bool)
-            tpis = tis | tpis
             tpis[tis] = test_pldis
 
             self._cmpt_bs_lims(
@@ -911,6 +984,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         '''Compute upper and lower bounds of ratios that are appearing or
         disappearing using bootstrapping.
         '''
+
+        if self._rt_df_flag:
+            raise NotImplementedError(
+                'Bootstrapping computation not implemented in case of '
+                'different reference and test arrays!')
 
         if farr_flgs[idx_j, idx_i]:
             farr_ul[idx_i, idx_j] = farr_ul[idx_j, idx_i]
@@ -988,17 +1066,13 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             bs_ctr += 1
         return
 
-    def _save_boundary_point_idxs(self, style, data_type):
+    def _save_boundary_point_idxs(self, styles):
 
         assert self._ann_vrfd_flag
 
-        assert isinstance(style, str)
-        assert style in self._poss_ans_stls
-
-        poss_data_types = ['window', 'full']
-
-        assert isinstance(data_type, str)
-        assert data_type in poss_data_types
+        for style in styles:
+            assert isinstance(style, str)
+            assert style in self._poss_ans_stls
 
         if not self._hdf5_flag:
             return
@@ -1014,37 +1088,46 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         else:
             bd_pts_gr = self._h5_hdl[grp_name]
 
-        if data_type == 'window':
-            if style == 'un_peel':
-                dts_arr = self._rudts
+        data_dicts = {}
+        data_labs = ['refr']
 
-            elif style == 'peel':
+        data_dicts['window'] = {'un_peel': {'refr', self._rudts}}
+        data_dicts['full'] = {'refr': self._refr_data_arr}
 
-                assert (
-                    (self._ans_stl == 'peel') or
-                    (self._ans_stl == 'alt_peel'))
+        if self._rt_df_flag:
+            data_dicts['window']['un_peel']['test'] = self._tudts
+            data_dicts['full']['test'] = self._test_data_arr
 
-                dts_arr = self._rpdts
+            data_labs.append('test')
 
-            else:
-                raise NotImplementedError
+        if 'peel' in styles:
+            data_dicts['window']['peel'] = {'refr', self._rpdts}
 
-            res = self._get_win_bd_idxs(dts_arr)
-            bd_pts_gr[f'{style}/{data_type}/idxs'] = res[0]
-            bd_pts_gr[f'{style}/{data_type}/time'] = (res[1] - _min_t) // _td
+            if self._rt_df_flag:
+                data_dicts['window']['peel']['test'] = self._tpdts
 
-        elif data_type == 'full':
-            res = self._get_full_bd_idxs(style)
+        for style in styles:
+            for data_lab in data_labs:
+                dts_arr = data_dicts['window'][style][data_lab]
 
-            bd_pts_gr[f'un_peel/{data_type}/idxs'] = res[0]
-            bd_pts_gr[f'un_peel/{data_type}/time'] = (res[1] - _min_t) // _td
+                res = self._get_win_bd_idxs(dts_arr)
 
-            if style == 'peel':
-                bd_pts_gr[f'peel/{data_type}/idxs'] = res[2]
-                bd_pts_gr[f'peel/{data_type}/time'] = (res[3] - _min_t) // _td
+                bd_pts_gr[f'{style}/window/{data_lab}_idxs'] = res[0]
+                bd_pts_gr[f'{style}/window/{data_lab}_time'] = (
+                    (res[1] - _min_t) // _td)
 
-        else:
-            raise NotImplementedError
+        for data_lab in data_labs:
+            data_arr = data_dicts['full'][data_lab]
+            res = self._get_full_bd_idxs(styles, data_arr)
+
+            bd_pts_gr[f'un_peel/full/{data_lab}_idxs'] = res[0]
+            bd_pts_gr[f'un_peel/full/{data_lab}_time'] = (
+                (res[1] - _min_t) // _td)
+
+            if 'peel' in styles:
+                bd_pts_gr[f'peel/full/{data_lab}_idxs'] = res[2]
+                bd_pts_gr[f'peel/full/{data_lab}_time'] = (
+                    (res[3] - _min_t) // _td)
 
         self._h5_hdl.flush()
         return
@@ -1074,30 +1157,27 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         return (chull_idxs, chull_time_idxs)
 
-    def _get_full_bd_idxs(self, style):
+    def _get_full_bd_idxs(self, styles, data_arr):
 
-        assert (style == 'peel') or (style == 'un_peel')
+        cd_arr = data_arr[:, :self._ans_dims].copy('c')
 
-        cd_arr = self._data_arr[:, :self._ans_dims].copy('c')
-
-        refr_refr_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
+        data_data_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
 
         dth = max(1, self._pl_dth)  # at zero there are no bd_pts
 
-        upld_chull_idxs = refr_refr_dts <= dth
+        upld_chull_idxs = data_data_dts <= dth
         upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
 
         ret = [upld_chull_idxs, upld_chull_time_idxs, ]
 
-        if style == 'peel':
-            refr_pld = cd_arr[~upld_chull_idxs].copy('c')
+        if 'peel' in styles:
+            data_pld = cd_arr[~upld_chull_idxs].copy('c')
 
-            refr_refr_pld_dts = dftn(
-                refr_pld, refr_pld, self._uvecs, self._n_cpus)
+            data_data_pld_dts = dftn(
+                data_pld, data_pld, self._uvecs, self._n_cpus)
 
             pld_chull_idxs = np.zeros(self._n_data_pts, dtype=bool)
-            pld_chull_idxs[~upld_chull_idxs] = (
-                refr_refr_pld_dts <= dth)
+            pld_chull_idxs[~upld_chull_idxs] = data_data_pld_dts <= dth
 
             pld_chull_time_idxs = self._t_idx[pld_chull_idxs]
 
@@ -1106,6 +1186,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         return ret
 
     def _set_to_zero(self, i, pl_flg):
+
         self._upld[i, i] = 0
 
         self._dn_flg[i, i] = True
@@ -1149,39 +1230,79 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             self._mp_pool = Pool(self._n_cpus)
 
         if self._mp_pool is not None:
-            uvols_res = self._prep_for_vols(
-                self._h5_path, '/dts_vars/_rudts', 'in_data/_data_arr')
+            urvols_res = self._prep_for_vols(
+                self._h5_path, '/dts_vars/_rudts', 'in_data/_refr_data_arr')
+
+            if self._rt_df_flag:
+                utvols_res = self._prep_for_vols(
+                    self._h5_path,
+                    '/dts_vars/_tudts',
+                    'in_data/_test_data_arr')
 
         else:
-            uvols_res = self._prep_for_vols(self._rudts)
+            urvols_res = self._prep_for_vols(
+                self._rudts, self._refr_data_arr)
+
+            if self._rt_df_flag:
+                utvols_res = self._prep_for_vols(
+                    self._tudts, self._test_data_arr)
 
         # underscores for consistency
 
-        (_ulabs,
-         _uvols,
-         _uloo_vols,
-         _un_chull_cts,
-         _uchull_idxs) = uvols_res
+        (_urlabs,
+         _urvols,
+         _urloo_vols,
+         _urn_chull_cts,
+         _urchull_idxs) = urvols_res
+
+        if self._rt_df_flag:
+            (_utlabs,
+             _utvols,
+             _utloo_vols,
+             _utn_chull_cts,
+             _utchull_idxs) = utvols_res
 
         if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
 
             if self._mp_pool is not None:
-                pvols_res = self._prep_for_vols(
-                    self._h5_path, '/dts_vars/_rpdts', 'in_data/_data_arr')
+                prvols_res = self._prep_for_vols(
+                    self._h5_path,
+                    '/dts_vars/_rpdts',
+                    'in_data/_refr_data_arr')
+
+                if self._rt_df_flag:
+                    ptvols_res = self._prep_for_vols(
+                        self._h5_path,
+                        '/dts_vars/_tpdts',
+                        'in_data/_test_data_arr')
 
             else:
-                pvols_res = self._prep_for_vols(self._rpdts)
+                prvols_res = self._prep_for_vols(
+                    self._rpdts, self._refr_data_arr)
+
+                if self._rt_df_flag:
+                    ptvols_res = self._prep_for_vols(
+                        self._tpdts, self._test_data_arr)
 
             (_,
-             _pvols,
-             _ploo_vols,
-             _pn_chull_cts,
-             _pchull_idxs) = pvols_res
+             _prvols,
+             _prloo_vols,
+             _prn_chull_cts,
+             _prchull_idxs) = prvols_res
 
-            _vbs_vol_corr = get_corrcoeff(_uvols, _pvols)
+            if self._rt_df_flag:
+                (_,
+                 _ptvols,
+                 _ptloo_vols,
+                 _ptn_chull_cts,
+                 _ptchull_idxs) = ptvols_res
+
+            _rvbs_vol_corr = get_corrcoeff(_urvols, _prvols)
+            _tvbs_vol_corr = get_corrcoeff(_utvols, _ptvols)
 
         else:
-            _vbs_vol_corr = np.nan
+            _rvbs_vol_corr = np.nan
+            _tvbs_vol_corr = np.nan
 
         if self._mp_pool is not None:
             self._mp_pool.close()
@@ -1190,7 +1311,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         dss = self._h5_hdl.create_group('vol_boot_vars')
 
-        dss.attrs['_vbs_vol_corr'] = _vbs_vol_corr
+        dss.attrs['_rvbs_vol_corr'] = _rvbs_vol_corr
+        dss.attrs['_tvbs_vol_corr'] = _tvbs_vol_corr
 
         loc_vars = locals()
 
@@ -1205,7 +1327,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             if isinstance(var, np.ndarray):
                 if lab in str_arr_labs:
                     dt = h5py.special_dtype(vlen=str)
-                    str_ds = dss.create_dataset(lab, (var.shape[0],), dtype=dt)
+                    str_ds = dss.create_dataset(
+                        lab, (var.shape[0],), dtype=dt)
                     str_ds[:] = var
 
                 else:
@@ -1299,7 +1422,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         else:
             mp_cond = False
 
-            dts_arr, = args
+            dts_arr, data_arr = args
 
             args = (
                 mp_cond,
@@ -1307,7 +1430,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 self._ans_dims,
                 self._loo_flag,
                 dts_arr,
-                self._data_arr)
+                data_arr)
 
             (labs,
              vols,
@@ -1399,6 +1522,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             print(3 * '\n', 50 * '#', sep='')
             print('Computing bootstrapped volume confidence limits...')
 
+        if self._rt_df_flag:
+            raise NotImplementedError(
+                'Bootstrapping computation not implemented in case of '
+                'different reference and test arrays!')
+
         begt = default_timer()
 
         tot_rand_rng = np.unique(self._mwr)
@@ -1432,7 +1560,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             assert np.any(take_idxs), 'No time steps selected!'
 
-            data_pts = self._data_arr[take_idxs, :self._ans_dims].copy('c')
+            data_pts = self._refr_data_arr[take_idxs, :self._ans_dims].copy('c')
 
             dts = self._get_dts(data_pts, data_pts)
 
