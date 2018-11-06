@@ -49,7 +49,7 @@ def main():
     sep = ';'
     time_fmt = '%Y-%m-%d'
     beg_date = '1970-01-01'
-    end_date = '2000-12-31'
+    end_date = '1990-12-31'
     stn = 454
 
     peel_depth = 1  # greater than this are kept
@@ -68,7 +68,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-    ann_flag = True
+#     ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -124,7 +124,7 @@ def main():
 
         in_hom_df = pd.read_csv(in_var_file, index_col=0, sep=sep)
         in_hom_df.index = pd.to_datetime(in_hom_df.index, format=time_fmt)
-        in_hom_ser = in_hom_df[str(stn)]
+        in_hom_ser = in_hom_df.loc[beg_date:end_date, str(stn)]
 
         res_hom_df = cnvt_ser_to_mult_dims_df(in_hom_ser, n_dims)
 
@@ -175,7 +175,7 @@ def main():
 
         ad_plot.plot_app_dis()
 
-#         ad_plot.plot_ans_dims()
+        ad_plot.plot_ans_dims()
 
         if sel_idxs_flag:
             ad_plot.plot_sim_anneal_opt()

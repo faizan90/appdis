@@ -1088,7 +1088,7 @@ class AppearDisappearPlot:
         plt.grid()
         plt.legend()
 
-        out_fig_name = 'chull_volumes.png'
+        out_fig_name = f'chull_volumes_{dlabs[2]}.png'
 
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()
@@ -1125,6 +1125,15 @@ class AppearDisappearPlot:
 
     def plot_ans_dims(self):
 
+        self._plot_ans_dims(self._refr_data_arr, ['Reference', 'refr'])
+
+        if self._rt_df_flag:
+            self._plot_ans_dims(self._test_data_arr, ['Test', 'test'])
+
+        return
+
+    def _plot_ans_dims(self, data_arr, labs):
+
         _, axs = plt.subplots(
             nrows=self._ans_dims, ncols=1, figsize=(20, 8), sharex=True)
 
@@ -1136,6 +1145,7 @@ class AppearDisappearPlot:
         Dimensions analyzed: {self._ans_dims}
         Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
+        Dataset: {labs[0]}
         Window size: {self._ws} {self._twt}(s)
         '''
 
@@ -1143,7 +1153,7 @@ class AppearDisappearPlot:
             ax = axs[i]
 
             ax.plot(
-                self._data_arr[:, i],
+                data_arr[:, i],
                 alpha=0.7,
                 lw=0.5,
                 label=f'Dim.: {i + 1:02d}')
@@ -1156,7 +1166,7 @@ class AppearDisappearPlot:
         axs[0].set_title(ttl, fontdict={'ha': 'right'}, loc='right')
 
         plt.savefig(
-            str(self._out_dir / 'ans_dims_time_series.png'),
+            str(self._out_dir / f'ans_dims_time_series_{labs[1]}.png'),
             bbox_inches='tight')
 
         plt.close()

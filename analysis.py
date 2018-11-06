@@ -147,16 +147,27 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         # this doesn't need to be loaded here. The plotting needs it though.
         self._vol_boot_vars_labs = (
-            '_ulabs',
-            '_uvols',
-            '_uloo_vols',
-            '_un_chull_cts',
-            '_uchull_idxs',
-            '_pvols',
-            '_ploo_vols',
-            '_pn_chull_cts',
-            '_pchull_idxs',
-            '_vbs_vol_corr',
+            '_urlabs',
+            '_urvols',
+            '_urloo_vols',
+            '_urn_chull_cts',
+            '_urchull_idxs',
+            '_prvols',
+            '_prloo_vols',
+            '_prn_chull_cts',
+            '_prchull_idxs',
+            '_rvbs_vol_corr',
+
+            '_utlabs',
+            '_utvols',
+            '_utloo_vols',
+            '_utn_chull_cts',
+            '_utchull_idxs',
+            '_ptvols',
+            '_ptloo_vols',
+            '_ptn_chull_cts',
+            '_ptchull_idxs',
+            '_tvbs_vol_corr',
             )
 
         # sequence matters
@@ -387,7 +398,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         self._upld_bs_flg)
 
                 if pl_flg:
-                    if not self._bs_flag:
+                    if self._bs_flag:
                         args = [ris, tis, rpis, crefr_arr]
 
                     else:
@@ -820,12 +831,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 begt = default_timer()
 
                 stls = ['un_peel']
-                vdtypes = ['full', 'window']
 
                 if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
                     stls.append('peel')
 
-                self._save_boundary_point_idxs(stls, vdtypes)
+                self._save_boundary_point_idxs(stls)
 
                 tott = default_timer() - begt
 
@@ -1091,7 +1101,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         data_dicts = {}
         data_labs = ['refr']
 
-        data_dicts['window'] = {'un_peel': {'refr', self._rudts}}
+        data_dicts['window'] = {'un_peel': {'refr': self._rudts}}
         data_dicts['full'] = {'refr': self._refr_data_arr}
 
         if self._rt_df_flag:
@@ -1101,7 +1111,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             data_labs.append('test')
 
         if 'peel' in styles:
-            data_dicts['window']['peel'] = {'refr', self._rpdts}
+            data_dicts['window']['peel'] = {'refr': self._rpdts}
 
             if self._rt_df_flag:
                 data_dicts['window']['peel']['test'] = self._tpdts
@@ -1316,7 +1326,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         loc_vars = locals()
 
-        str_arr_labs = ['_ulabs']
+        str_arr_labs = ['_urlabs', '_utlabs']
 
         for lab in self._vol_boot_vars_labs:
             if not lab in loc_vars:
