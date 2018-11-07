@@ -183,7 +183,7 @@ def main():
         if vol_data_lev:
             ad_plot.plot_volumes()
 
-#             ad_plot.plot_ecops()
+            ad_plot.plot_ecops()
     return
 
 

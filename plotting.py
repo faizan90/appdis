@@ -298,8 +298,26 @@ class AppearDisappearPlot:
                 elif poss_data_type not in bd_pts_gr[style]:
                     continue
 
+                mlabs = ['refr', 'Reference']
+
                 self._plot_ecops(
-                    style, poss_data_type, bd_pts_gr, emp_cop_out_dir)
+                    style,
+                    poss_data_type,
+                    bd_pts_gr,
+                    emp_cop_out_dir,
+                    mlabs,
+                    self._refr_data_arr)
+
+                if self._rt_df_flag:
+                    mlabs = ['test', 'Test']
+
+                    self._plot_ecops(
+                        style,
+                        poss_data_type,
+                        bd_pts_gr,
+                        emp_cop_out_dir,
+                        mlabs,
+                        self._test_data_arr)
 
         tott = default_timer() - begt
 
@@ -402,7 +420,14 @@ class AppearDisappearPlot:
                   f'{tott:0.3f} secs.')
         return
 
-    def _plot_ecops(self, style, data_type, bd_pts_gr, emp_cop_out_dir):
+    def _plot_ecops(
+            self,
+            style,
+            data_type,
+            bd_pts_gr,
+            emp_cop_out_dir,
+            mlabs,
+            data_arr):
 
         assert isinstance(style, str)
         assert isinstance(data_type, str)
@@ -412,7 +437,7 @@ class AppearDisappearPlot:
 
         for i in range(self._ans_dims):
             probs_arr[:, i] = (
-                rankdata(self._data_arr[:, i]) / (self._n_data_pts + 1))
+                rankdata(data_arr[:, i]) / (self._n_data_pts + 1))
 
         plt.figure(figsize=(5, 5))
 
@@ -425,11 +450,13 @@ class AppearDisappearPlot:
         Dimensions analyzed: {self._ans_dims}
         Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
-        Spearman correlation: %0.4f
-        Asymmetry 1: %1.3E
-        Asymmetry 2: %1.3E
+        Dataset: {mlabs[1]}
+        Diff. refr-test: {self._diff_data_lab}
         Total steps: %d
         Chull points: %d
+        Asymmetry 1: %1.3E
+        Asymmetry 2: %1.3E
+        Spearman correlation: %0.4f
         '''
 
         # entropy stuff
@@ -446,10 +473,12 @@ class AppearDisappearPlot:
 
                 probs_arr_j = probs_arr[:, j]
 
-                un_peel_idxs = bd_pts_gr[f'un_peel/{data_type}/idxs'][...]
+                un_peel_idxs = bd_pts_gr[
+                    f'un_peel/{data_type}/{mlabs[0]}_idxs'][...]
 
                 if (style == 'peel') or (style == 'alt_peel'):
-                    peel_idxs = bd_pts_gr[f'peel/{data_type}/idxs'][...]
+                    peel_idxs = bd_pts_gr[
+                        f'peel/{data_type}/{mlabs[0]}_idxs'][...]
 
                     probs_i = probs_arr_i[~un_peel_idxs]
                     probs_j = probs_arr_j[~un_peel_idxs]
@@ -512,7 +541,7 @@ class AppearDisappearPlot:
                 plt.grid()
 
                 out_fig_name = (
-                    f'emp_cop_{data_type}_{style}_vec_{i}_{j}.png')
+                    f'emp_cop_{mlabs[0]}_{data_type}_{style}_vec_{i}_{j}.png')
 
                 plt.gca().set_aspect('equal', 'box')
 
@@ -555,7 +584,7 @@ class AppearDisappearPlot:
                     label='Entropy', orientation='vertical', shrink=0.5)
 
                 out_fig_name = (
-                    f'entropy_{data_type}_{style}_vec_{i}_{j}.png')
+                    f'entropy_{mlabs[0]}_{data_type}_{style}_vec_{i}_{j}.png')
 
                 plt.gca().set_aspect('equal', 'box')
 
@@ -618,6 +647,12 @@ class AppearDisappearPlot:
 
             self._t_idx = pd.to_datetime(self._t_idx, unit='s')
 
+        if self._rt_df_flag:
+            self._diff_data_lab = 'Yes'
+
+        else:
+            self._diff_data_lab = 'Yes'
+
         self._bef_plot_vars_set = True
         return
 
@@ -670,8 +705,9 @@ class AppearDisappearPlot:
         Analysis style: {self._ans_stl}
         Window type: {self._twt}
         Dimensions analyzed: {self._ans_dims}
-        Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
+        Diff. refr-test: {self._diff_data_lab}
+        Unit vectors: {self._n_uvecs:1.0E}
         Window size: {self._ws} {xylab}(s)
         Starting, ending {xylab}(s): {labs[0]}, {labs[-1]}
         '''
@@ -1064,8 +1100,9 @@ class AppearDisappearPlot:
         Peeling depth: {self._pl_dth}
         Bootstraps: {self._n_vbs}
         Dataset: {dlabs[1]}
-        Peeled-Unpeeled volume correlation: {vol_corr: 0.4f}
+        Diff. refr-test: {self._diff_data_lab}
         Window size: {self._ws} {self._twt}(s)
+        Peeled-Unpeeled volume correlation: {vol_corr: 0.4f}
         Starting, ending {self._twt}(s): {_ulabs[0]}, {_ulabs[-1]}
         '''
 
@@ -1146,6 +1183,7 @@ class AppearDisappearPlot:
         Unit vectors: {self._n_uvecs:1.0E}
         Peeling depth: {self._pl_dth}
         Dataset: {labs[0]}
+        Diff. refr-test: {self._diff_data_lab}
         Window size: {self._ws} {self._twt}(s)
         '''
 
