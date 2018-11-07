@@ -34,7 +34,8 @@ def main():
     main_dir = Path(r'P:\Synchronize\IWS\2016_DFG_SPATE\data\model_variablity_compare_tests')
     os.chdir(main_dir)
 
-    in_var_file = main_dir / r'neckar_norm_cop_infill_discharge_1950_2017_20180716.csv'
+    in_refr_var_file = main_dir / r'neckar_norm_cop_infill_discharge_1950_2017_20180716.csv'
+    in_test_var_file = main_dir / r'valid_kfold_01__cats_outflow.csv'
 
     n_uvecs = int(5e2)
     n_cpus = 'auto'
@@ -50,7 +51,7 @@ def main():
     time_fmt = '%Y-%m-%d'
     beg_date = '1970-01-01'
     end_date = '1990-12-31'
-    stn = 454
+    stn = 420
 
     peel_depth = 1  # greater than this are kept
     n_boots = 0
@@ -68,7 +69,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-#     ann_flag = True
+    ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -122,17 +123,24 @@ def main():
 #             time_idx = in_anom_df.index
 #             del in_var_dict, in_anom_df
 
-        in_hom_df = pd.read_csv(in_var_file, index_col=0, sep=sep)
-        in_hom_df.index = pd.to_datetime(in_hom_df.index, format=time_fmt)
-        in_hom_ser = in_hom_df.loc[beg_date:end_date, str(stn)]
+        in_refr_df = pd.read_csv(in_refr_var_file, index_col=0, sep=sep)
+        in_refr_df.index = pd.to_datetime(in_refr_df.index, format=time_fmt)
+        in_refr_ser = in_refr_df.loc[beg_date:end_date, str(stn)]
 
-        res_hom_df = cnvt_ser_to_mult_dims_df(in_hom_ser, n_dims)
+        res_refr_df = cnvt_ser_to_mult_dims_df(in_refr_ser, n_dims)
 
-        tot_in_var_arr = res_hom_df.values.copy('c')
-        time_idx = res_hom_df.index
+        tot_refr_var_arr = res_refr_df.values.copy('c')
+        time_idx = res_refr_df.index
+
+        in_test_df = pd.read_csv(in_test_var_file, index_col=0, sep=sep)
+        in_test_df.index = pd.to_datetime(in_test_df.index, format=time_fmt)
+        in_test_ser = in_test_df.loc[beg_date:end_date, str(stn)]
+
+        res_test_df = cnvt_ser_to_mult_dims_df(in_test_ser, n_dims)
+        tot_test_var_arr = res_test_df.values.copy('c')
 
         ad_ans = AppearDisappearAnalysis()
-        ad_ans.set_data_arrays(tot_in_var_arr, tot_in_var_arr)
+        ad_ans.set_data_arrays(tot_refr_var_arr, tot_test_var_arr, True)
         ad_ans.set_time_index(time_idx)
         ad_ans.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
 
@@ -177,13 +185,13 @@ def main():
 
         ad_plot.plot_ans_dims()
 
-#         if sel_idxs_flag:
-#             ad_plot.plot_sim_anneal_opt()
-#
-#         if vol_data_lev:
-#             ad_plot.plot_volumes()
-#
-#             ad_plot.plot_ecops()
+        if sel_idxs_flag:
+            ad_plot.plot_sim_anneal_opt()
+
+        if vol_data_lev:
+            ad_plot.plot_volumes()
+
+            ad_plot.plot_ecops()
     return
 
 

@@ -83,7 +83,7 @@ class AppearDisappearData:
 
         self._rt_df_flag = refr_test_diff_flag
 
-        if self._rt_df_flag:
+        if not self._rt_df_flag:
             test_data_arr = refr_data_arr
 
         darrs_list = [refr_data_arr, test_data_arr]
