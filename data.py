@@ -143,7 +143,7 @@ class AppearDisappearData:
                 f'Reference and test arrays set with {self._n_data_pts} '
                 f'rows and {self._n_data_dims} columns.')
 
-            if self._rt_df_flag:
+            if not self._rt_df_flag:
                 print('Reference and Test data array are equal!')
 
         self._data_arrs_set_flag = True
