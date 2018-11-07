@@ -348,14 +348,14 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 # TODO: move such stuff to another ftn
                 if pl_flg or self._vdl:
-                    test_test_dts = self._get_dts(test, test)
-                    test_pldis = test_test_dts > self._pl_dth
-                    test_pld = test[test_pldis, :]
+                    tdt_cmptd = self._rt_df_flag and self._tudts['cts'][j]
 
-                    if (self._vdl and
-                        (self._rt_df_flag) and
-                        (not self._tudts['cts'][j])):
+                    if not tdt_cmptd:
+                        test_test_dts = self._get_dts(test, test)
+                        test_pldis = test_test_dts > self._pl_dth
+                        test_pld = test[test_pldis, :]
 
+                    if self._vdl and self._rt_df_flag and (not self._tudts['cts'][j]):
                         ct = test_test_dts.shape[0]
                         self._tudts['cts'][j] = ct
                         self._tudts['dts'][j, :ct] = test_test_dts
@@ -398,8 +398,14 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         self._upld_bs_flg)
 
                 if pl_flg:
+                    if self._rt_df_flag:
+                        ct = self._tudts['cts'][j]
+                        test_test_dts = self._tudts['dts'][j, :ct]
+                        test_pldis = test_test_dts > self._pl_dth
+                        test_pld = test[test_pldis, :]
+
                     if self._bs_flag:
-                        args = [ris, tis, rpis, crefr_arr]
+                        args = [ris, tis, rpis, crefr_arr, test_pldis]
 
                     else:
                         args = []
@@ -409,7 +415,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         test,
                         refr_pld,
                         test_pld,
-                        test_pldis,
                         i,
                         j,
                         *args)
@@ -928,7 +933,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             test,
             refr_pld,
             test_pld,
-            test_pldis,
             idx_i,
             idx_j,
             *args):
@@ -938,7 +942,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         self._fill_get_rat(refr_pld, test_pld, idx_i, idx_j, self._pld)
 
         if self._bs_flag:
-            ris, tis, rpis, cd_arr = args[0], args[1], args[2], args[3]
+            ris, tis, rpis, cd_arr, test_pldis = args
 
             tpis = np.zeros_like(tis, dtype=bool)
             tpis[tis] = test_pldis
@@ -1308,11 +1312,15 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                  _ptchull_idxs) = ptvols_res
 
             _rvbs_vol_corr = get_corrcoeff(_urvols, _prvols)
-            _tvbs_vol_corr = get_corrcoeff(_utvols, _ptvols)
+
+            if self._rt_df_flag:
+                _tvbs_vol_corr = get_corrcoeff(_utvols, _ptvols)
 
         else:
             _rvbs_vol_corr = np.nan
-            _tvbs_vol_corr = np.nan
+
+            if self._rt_df_flag:
+                _tvbs_vol_corr = np.nan
 
         if self._mp_pool is not None:
             self._mp_pool.close()
@@ -1322,7 +1330,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         dss = self._h5_hdl.create_group('vol_boot_vars')
 
         dss.attrs['_rvbs_vol_corr'] = _rvbs_vol_corr
-        dss.attrs['_tvbs_vol_corr'] = _tvbs_vol_corr
+
+        if self._rt_df_flag:
+            dss.attrs['_tvbs_vol_corr'] = _tvbs_vol_corr
 
         loc_vars = locals()
 

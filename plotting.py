@@ -652,7 +652,7 @@ class AppearDisappearPlot:
             self._diff_data_lab = 'Yes'
 
         else:
-            self._diff_data_lab = 'Yes'
+            self._diff_data_lab = 'No'
 
         self._bef_plot_vars_set = True
         return
