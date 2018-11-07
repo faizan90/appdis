@@ -441,6 +441,7 @@ class AppearDisappearPlot:
 
         plt.figure(figsize=(5, 5))
 
+        # order matters
         ttl = f'''
         %s
 
@@ -452,7 +453,7 @@ class AppearDisappearPlot:
         Peeling depth: {self._pl_dth}
         Dataset: {mlabs[1]}
         Diff. refr-test: {self._diff_data_lab}
-        Total steps: %d
+        Total points: %d
         Chull points: %d
         Asymmetry 1: %1.3E
         Asymmetry 2: %1.3E
@@ -527,11 +528,11 @@ class AppearDisappearPlot:
 
                 cttl = ttl % (
                     'Input data array\'s empirical copulas',
-                    correl,
+                    probs_i.shape[0],
+                    nchull_pts,
                     asymms['asymm_1'],
                     asymms['asymm_2'],
-                    probs_i.shape[0],
-                    nchull_pts)
+                    correl)
 
                 plt.title(
                     cttl,
@@ -559,11 +560,11 @@ class AppearDisappearPlot:
 
                 ettl = ttl % (
                     'Input data array\'s empirical copula entropy',
-                    correl,
+                    probs_i.shape[0],
+                    nchull_pts,
                     asymms['asymm_1'],
                     asymms['asymm_2'],
-                    probs_i.shape[0],
-                    nchull_pts)
+                    correl)
 
                 plt.title(
                     ettl,
@@ -1172,7 +1173,7 @@ class AppearDisappearPlot:
     def _plot_ans_dims(self, data_arr, labs):
 
         _, axs = plt.subplots(
-            nrows=self._ans_dims, ncols=1, figsize=(20, 8), sharex=True)
+            nrows=self._ans_dims, ncols=1, figsize=(19, 7), sharex=True)
 
         ttl = f'''
         Analysed dimensions time series comparison

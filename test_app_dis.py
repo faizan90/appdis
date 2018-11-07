@@ -177,13 +177,13 @@ def main():
 
         ad_plot.plot_ans_dims()
 
-        if sel_idxs_flag:
-            ad_plot.plot_sim_anneal_opt()
-
-        if vol_data_lev:
-            ad_plot.plot_volumes()
-
-            ad_plot.plot_ecops()
+#         if sel_idxs_flag:
+#             ad_plot.plot_sim_anneal_opt()
+#
+#         if vol_data_lev:
+#             ad_plot.plot_volumes()
+#
+#             ad_plot.plot_ecops()
     return
 
 
