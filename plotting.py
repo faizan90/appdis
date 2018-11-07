@@ -322,8 +322,9 @@ class AppearDisappearPlot:
         tott = default_timer() - begt
 
         if self.verbose:
-            print(f'Done plotting empirical copulas of individual dimensions '
-                  f'of the input timeseries in {tott:0.3f} secs.')
+            print(
+                f'Done plotting empirical copulas of individual dimensions '
+                f'of the input timeseries in {tott:0.3f} secs.')
 
         return
 

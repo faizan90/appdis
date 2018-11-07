@@ -92,6 +92,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             '_vdl',
             '_loo_flag',
             '_mvds',
+            '_pl_flag',
             )
 
         self._opt_vars_labs = (
@@ -259,8 +260,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         begt = default_timer()
 
-        pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
-
         self._gen_cts_dts_idxs('refr')
 
         if self._rt_df_flag:
@@ -269,7 +268,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         else:
             self._tudts = self._rudts
 
-            if pl_flg:
+            if self._pl_flag:
                 self._tpdts = self._rpdts
 
         # computations for un peeled case are kept here. The rest are
@@ -296,7 +295,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             refr = crefr_arr[ris, :].copy('c')
 
-            if pl_flg:
+            if self._pl_flag:
                 ct = self._rudts['cts'][i]
                 refr_refr_dts = self._rudts['dts'][i, :ct]
                 refr_pldis = refr_refr_dts > self._pl_dth
@@ -311,7 +310,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     continue
 
                 if (i == j) and (not self._rt_df_flag):
-                    self._set_to_zero(i, pl_flg)
+                    self._set_to_zero(i, self._pl_flag)
                     continue
 
                 tis = (self._mwr >= j) & (self._mwr < (j + self._ws))
@@ -339,8 +338,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         self._upld_bs_ll,
                         self._upld_bs_flg)
 
-                if pl_flg:
-#                     if self._rt_df_flag:
+                if self._pl_flag:
                     ct = self._tudts['cts'][j]
                     test_test_dts = self._tudts['dts'][j, :ct]
                     test_pldis = test_test_dts > self._pl_dth
@@ -381,68 +379,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         self._app_dis_done_flag = True
         self._aft_app_dis()
-        return
-
-    def _gen_cts_dts_idxs(self, dataset):
-
-        pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
-
-        if dataset == 'refr':
-            cd_arr = self._refr_data_arr[:, :self._ans_dims]
-            udts_arr = self._rudts
-
-            if pl_flg:
-                pdts_arr = self._rpdts
-
-        elif dataset == 'test':
-            cd_arr = self._test_data_arr[:, :self._ans_dims]
-            udts_arr = self._tudts
-
-            if pl_flg:
-                pdts_arr = self._tpdts
-
-        else:
-            raise NotImplementedError
-
-        for i in range(self._mwi):
-            didxs = (self._mwr >= i) & (self._mwr < (i + self._ws))
-            if not didxs.sum():
-                continue
-
-            data = cd_arr[didxs, :].copy('c')
-
-            data_data_dts = self._get_dts(data, data)
-
-            ct = data_data_dts.shape[0]
-            udts_arr['cts'][i] = ct
-            udts_arr['dts'][i, :ct] = data_data_dts
-            udts_arr['idx'][i, :ct] = np.where(didxs)[0]
-
-            step_lab = ''
-
-            if self._twt == 'year':
-                step_lab = int(self._t_idx[didxs][0].strftime('%Y'))
-
-            elif self._twt == 'month':
-                step_lab = int(self._t_idx[didxs][0].strftime('%Y%m'))
-
-            elif self._twt == 'range':
-                step_lab = self._t_idx[didxs][0]
-
-            udts_arr['lab'][i] = step_lab
-
-            if pl_flg:
-                data_pldis = data_data_dts > self._pl_dth
-                data_pld = data[data_pldis, :]
-
-                data_pld_dts = self._get_dts(data_pld, data_pld)
-                pct = data_pld_dts.shape[0]
-
-                pdts_arr['cts'][i] = pct
-                pdts_arr['dts'][i, :pct] = data_pld_dts
-                pdts_arr['idx'][i, :pct] = np.where(didxs)[0][data_pldis]
-                pdts_arr['lab'][i] = udts_arr['lab'][i]
-
         return
 
     def resume_from_hdf5(self, path):
@@ -556,8 +492,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
     def get_peeled_appear_disappear_ratios(self):
 
         assert self._app_dis_done_flag, 'Call cmpt_appear_disappear first!'
-        assert (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'), (
-            'Incompatible analysis style!')
+        assert self._pl_flag, 'Incompatible analysis style!'
 
         return self._pld
 
@@ -708,7 +643,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             self._upld_bs_flg = np.zeros_like(
                 self._upld, dtype=bool, order='c')
 
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+        if self._pl_flag:
 
             self._pld = self._upld.copy()
 
@@ -751,6 +686,70 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             self._init_hdf5_ds()
         return
 
+    def _gen_cts_dts_idxs(self, dataset):
+
+        '''Save counts of points that are on the chull of the peeled and
+        unpeeled datasets i.e. reference and test. Doing this here and
+        saves some complications.
+        '''
+
+        if dataset == 'refr':
+            cd_arr = self._refr_data_arr[:, :self._ans_dims]
+            udts_arr = self._rudts
+
+            if self._pl_flag:
+                pdts_arr = self._rpdts
+
+        elif dataset == 'test':
+            cd_arr = self._test_data_arr[:, :self._ans_dims]
+            udts_arr = self._tudts
+
+            if self._pl_flag:
+                pdts_arr = self._tpdts
+
+        else:
+            raise NotImplementedError
+
+        for i in range(self._mwi):
+            didxs = (self._mwr >= i) & (self._mwr < (i + self._ws))
+            if not didxs.sum():
+                continue
+
+            data = cd_arr[didxs, :].copy('c')
+
+            data_data_dts = self._get_dts(data, data)
+
+            ct = data_data_dts.shape[0]
+            udts_arr['cts'][i] = ct
+            udts_arr['dts'][i, :ct] = data_data_dts
+            udts_arr['idx'][i, :ct] = np.where(didxs)[0]
+
+            step_lab = ''
+
+            if self._twt == 'year':
+                step_lab = int(self._t_idx[didxs][0].strftime('%Y'))
+
+            elif self._twt == 'month':
+                step_lab = int(self._t_idx[didxs][0].strftime('%Y%m'))
+
+            elif self._twt == 'range':
+                step_lab = self._t_idx[didxs][0]
+
+            udts_arr['lab'][i] = step_lab
+
+            if self._pl_flag:
+                data_pldis = data_data_dts > self._pl_dth
+                data_pld = data[data_pldis, :]
+
+                data_pld_dts = self._get_dts(data_pld, data_pld)
+                pct = data_pld_dts.shape[0]
+
+                pdts_arr['cts'][i] = pct
+                pdts_arr['dts'][i, :pct] = data_pld_dts
+                pdts_arr['idx'][i, :pct] = np.where(didxs)[0][data_pldis]
+                pdts_arr['lab'][i] = udts_arr['lab'][i]
+        return
+
     def _init_hdf5_ds(self):
 
         '''Initialize the outputs HDF5 file and write the appropriate
@@ -783,7 +782,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             var_labs = self._var_labs_list[i]
 
             for lab in var_labs:
-
                 if not hasattr(self, lab):
                     continue
 
@@ -836,7 +834,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 stls = ['un_peel']
 
-                if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
+                if self._pl_flag:
                     stls.append('peel')
 
                 self._save_boundary_point_idxs(stls)
@@ -844,8 +842,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 tott = default_timer() - begt
 
                 if self.verbose:
-                    print(f'Done writing boundary points information to HDF5 in '
-                          f'{tott:0.3f} secs.')
+                    print(
+                        f'Done writing boundary points information to HDF5 '
+                        f'in {tott:0.3f} secs.')
 
                 self._write_vols()
         return
@@ -879,7 +878,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
     def _get_dts(self, refr, test):
 
-        '''Get depths of test in refr'''
+        '''Get depths of test in refr.'''
 
         if refr.shape[0] and test.shape[0]:
             dts = dftn(refr, test, self._uvecs, self._n_cpus)
@@ -1056,8 +1055,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 unacc_seq_ctr += 1
 
                 if self.verbose:
-                    print('Unacceptable sequence encountered in '
-                          'bootstrapping!')
+                    print(
+                        'Unacceptable sequence encountered in '
+                        'bootstrapping!')
                 continue
 
             bs_set = []
@@ -1172,6 +1172,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
     def _get_full_bd_idxs(self, styles, data_arr):
 
+        '''Chull of complete datasets i.e. without windows.'''
+
         cd_arr = data_arr[:, :self._ans_dims].copy('c')
 
         data_data_dts = dftn(cd_arr, cd_arr, self._uvecs, self._n_cpus)
@@ -1181,7 +1183,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         upld_chull_idxs = data_data_dts <= dth
         upld_chull_time_idxs = self._t_idx[upld_chull_idxs]
 
-        ret = [upld_chull_idxs, upld_chull_time_idxs, ]
+        ret = [upld_chull_idxs, upld_chull_time_idxs]
 
         if 'peel' in styles:
             data_pld = cd_arr[~upld_chull_idxs].copy('c')
@@ -1275,8 +1277,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
              _utn_chull_cts,
              _utchull_idxs) = utvols_res
 
-        if (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'):
-
+        if self._pl_flag:
             if self._mp_pool is not None:
                 prvols_res = self._prep_for_vols(
                     self._h5_path,
@@ -1462,7 +1463,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
     @staticmethod
     def _get_vols(step_idxs, args):
 
-        '''Get volume of moving window convex hulls'''
+        '''Get volume of moving window convex hulls.'''
 
         mp_cond, lab_cond, dims, loo_flag = args[:4]
 

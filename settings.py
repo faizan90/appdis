@@ -118,6 +118,9 @@ class AppearDisappearSettings:
         self._pl_dth = peel_depth
         self._n_cpus = n_cpus
 
+        self._pl_flag = (
+            (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel'))
+
         if self.verbose:
             print(3 * '\n', 50 * '#', sep='')
             print(f'Set the following analysis parameters:')
