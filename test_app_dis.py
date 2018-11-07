@@ -59,7 +59,7 @@ def main():
     vol_data_lev = 1
     loo_flag = True
     max_allowed_corr = 0.5
-    app_dis_cb_max = 30
+    app_dis_cb_max = 10
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -68,7 +68,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-#     ann_flag = True
+    ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -90,7 +90,7 @@ def main():
 #                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
 #                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
 
-    out_dir = (f'refr_refr_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
+    out_dir = (f'refr_test_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_{stn}')
 
@@ -139,7 +139,7 @@ def main():
         tot_test_var_arr = res_test_df.values.copy('c')
 
         ad_ans = AppearDisappearAnalysis()
-        ad_ans.set_data_arrays(tot_refr_var_arr, tot_test_var_arr, False)
+        ad_ans.set_data_arrays(tot_refr_var_arr, tot_test_var_arr, True)
         ad_ans.set_time_index(time_idx)
         ad_ans.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
 
@@ -190,7 +190,7 @@ def main():
         if vol_data_lev:
             ad_plot.plot_volumes()
 
-            ad_plot.plot_ecops()
+#             ad_plot.plot_ecops()
     return
 
 

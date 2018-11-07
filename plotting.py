@@ -1003,10 +1003,10 @@ class AppearDisappearPlot:
         if self._loo_flag:
             plt.scatter(
                 _uloo_vols[:, 0],
-                _uloo_vols[:, 1] / _uloo_vols[0, 1],
+                _uloo_vols[:, 1] / _uvols[0],
                 marker='o',
                 alpha=0.2,
-                label=f'unpeeled leave-one ({_uloo_vols[0, 1]:6.3E})',
+                label=f'unpeeled leave-one',
                 color='C0',
                 zorder=6)
 
@@ -1063,10 +1063,10 @@ class AppearDisappearPlot:
             if self._loo_flag:
                 plt.scatter(
                     _ploo_vols[:, 0],
-                    _ploo_vols[:, 1] / _ploo_vols[0, 1],
+                    _ploo_vols[:, 1] / _pvols[0],
                     marker='o',
                     alpha=0.1,
-                    label=f'peeled leave-one ({_ploo_vols[0, 1]:6.3E})',
+                    label=f'peeled leave-one',
                     color='C1',
                     zorder=6)
 

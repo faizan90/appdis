@@ -261,12 +261,23 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
 
-        crefr_arr = self._refr_data_arr[:, :self._ans_dims]
-        ctest_arr = self._test_data_arr[:, :self._ans_dims]
+        self._gen_cts_dts_idxs('refr')
+
+        if self._rt_df_flag:
+            self._gen_cts_dts_idxs('test')
+
+        else:
+            self._tudts = self._rudts
+
+            if pl_flg:
+                self._tpdts = self._rpdts
 
         # computations for un peeled case are kept here. The rest are
         # passed to other functions to avoid a long loop and too much white
         # space.
+
+        crefr_arr = self._refr_data_arr[:, :self._ans_dims]
+        ctest_arr = self._test_data_arr[:, :self._ans_dims]
 
         for i in range(self._mwi):
 
@@ -285,50 +296,21 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             refr = crefr_arr[ris, :].copy('c')
 
-            if pl_flg or self._vdl:
-                refr_refr_dts = self._get_dts(refr, refr)
+            if pl_flg:
+                ct = self._rudts['cts'][i]
+                refr_refr_dts = self._rudts['dts'][i, :ct]
                 refr_pldis = refr_refr_dts > self._pl_dth
                 refr_pld = refr[refr_pldis, :]
-
-                if self._vdl:
-                    ct = refr_refr_dts.shape[0]
-                    self._rudts['cts'][i] = ct
-                    self._rudts['dts'][i, :ct] = refr_refr_dts
-                    self._rudts['idx'][i, :ct] = np.where(ris)[0]
-
-                    step_lab = ''
-
-                    if self._twt == 'year':
-                        step_lab = int(self._t_idx[ris][0].strftime('%Y'))
-
-                    elif self._twt == 'month':
-                        step_lab = int(self._t_idx[ris][0].strftime('%Y%m'))
-
-                    elif self._twt == 'range':
-                        step_lab = self._t_idx[ris][0]
-
-                    self._rudts['lab'][i] = step_lab
-
-                    if pl_flg:
-                        refr_pld_dts = self._get_dts(refr_pld, refr_pld)
-                        pct = refr_pld_dts.shape[0]
-
-                        self._rpdts['cts'][i] = pct
-                        self._rpdts['dts'][i, :pct] = refr_pld_dts
-                        self._rpdts['idx'][i, :pct] = (
-                            np.where(ris)[0][refr_pldis])
-                        self._rpdts['lab'][i] = self._rudts['lab'][i]
 
                 if self._bs_flag:
                     rpis = np.zeros_like(ris, dtype=bool)
                     rpis[ris] = refr_pldis
 
             for j in range(self._mwi):
-
                 if self._dn_flg[i, j]:
                     continue
 
-                if i == j:
+                if (i == j) and (not self._rt_df_flag):
                     self._set_to_zero(i, pl_flg)
                     continue
 
@@ -346,46 +328,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                 self._fill_get_rat(refr, test, i, j, self._upld)
 
-                # TODO: move such stuff to another ftn
-                if pl_flg or self._vdl:
-                    tdt_cmptd = self._rt_df_flag and self._tudts['cts'][j]
-
-                    if not tdt_cmptd:
-                        test_test_dts = self._get_dts(test, test)
-                        test_pldis = test_test_dts > self._pl_dth
-                        test_pld = test[test_pldis, :]
-
-                    if self._vdl and self._rt_df_flag and (not self._tudts['cts'][j]):
-                        ct = test_test_dts.shape[0]
-                        self._tudts['cts'][j] = ct
-                        self._tudts['dts'][j, :ct] = test_test_dts
-                        self._tudts['idx'][j, :ct] = np.where(tis)[0]
-
-                        step_lab = ''
-
-                        if self._twt == 'year':
-                            step_lab = int(
-                                self._t_idx[tis][0].strftime('%Y'))
-
-                        elif self._twt == 'month':
-                            step_lab = int(
-                                self._t_idx[tis][0].strftime('%Y%m'))
-
-                        elif self._twt == 'range':
-                            step_lab = self._t_idx[tis][0]
-
-                        self._tudts['lab'][j] = step_lab
-
-                        if pl_flg:
-                            test_pld_dts = self._get_dts(test_pld, test_pld)
-                            pct = test_pld_dts.shape[0]
-
-                            self._tpdts['cts'][j] = pct
-                            self._tpdts['dts'][j, :pct] = test_pld_dts
-                            self._tpdts['idx'][j, :pct] = (
-                                np.where(tis)[0][test_pldis])
-                            self._tpdts['lab'][j] = self._tudts['lab'][j]
-
                 if self._bs_flag:
                     self._cmpt_bs_lims(
                         ris,
@@ -398,11 +340,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                         self._upld_bs_flg)
 
                 if pl_flg:
-                    if self._rt_df_flag:
-                        ct = self._tudts['cts'][j]
-                        test_test_dts = self._tudts['dts'][j, :ct]
-                        test_pldis = test_test_dts > self._pl_dth
-                        test_pld = test[test_pldis, :]
+#                     if self._rt_df_flag:
+                    ct = self._tudts['cts'][j]
+                    test_test_dts = self._tudts['dts'][j, :ct]
+                    test_pldis = test_test_dts > self._pl_dth
+                    test_pld = test[test_pldis, :]
 
                     if self._bs_flag:
                         args = [ris, tis, rpis, crefr_arr, test_pldis]
@@ -439,6 +381,68 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         self._app_dis_done_flag = True
         self._aft_app_dis()
+        return
+
+    def _gen_cts_dts_idxs(self, dataset):
+
+        pl_flg = (self._ans_stl == 'peel') or (self._ans_stl == 'alt_peel')
+
+        if dataset == 'refr':
+            cd_arr = self._refr_data_arr[:, :self._ans_dims]
+            udts_arr = self._rudts
+
+            if pl_flg:
+                pdts_arr = self._rpdts
+
+        elif dataset == 'test':
+            cd_arr = self._test_data_arr[:, :self._ans_dims]
+            udts_arr = self._tudts
+
+            if pl_flg:
+                pdts_arr = self._tpdts
+
+        else:
+            raise NotImplementedError
+
+        for i in range(self._mwi):
+            didxs = (self._mwr >= i) & (self._mwr < (i + self._ws))
+            if not didxs.sum():
+                continue
+
+            data = cd_arr[didxs, :].copy('c')
+
+            data_data_dts = self._get_dts(data, data)
+
+            ct = data_data_dts.shape[0]
+            udts_arr['cts'][i] = ct
+            udts_arr['dts'][i, :ct] = data_data_dts
+            udts_arr['idx'][i, :ct] = np.where(didxs)[0]
+
+            step_lab = ''
+
+            if self._twt == 'year':
+                step_lab = int(self._t_idx[didxs][0].strftime('%Y'))
+
+            elif self._twt == 'month':
+                step_lab = int(self._t_idx[didxs][0].strftime('%Y%m'))
+
+            elif self._twt == 'range':
+                step_lab = self._t_idx[didxs][0]
+
+            udts_arr['lab'][i] = step_lab
+
+            if pl_flg:
+                data_pldis = data_data_dts > self._pl_dth
+                data_pld = data[data_pldis, :]
+
+                data_pld_dts = self._get_dts(data_pld, data_pld)
+                pct = data_pld_dts.shape[0]
+
+                pdts_arr['cts'][i] = pct
+                pdts_arr['dts'][i, :pct] = data_pld_dts
+                pdts_arr['idx'][i, :pct] = np.where(didxs)[0][data_pldis]
+                pdts_arr['lab'][i] = udts_arr['lab'][i]
+
         return
 
     def resume_from_hdf5(self, path):
@@ -672,28 +676,25 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         self._dn_flg = np.zeros_like(self._upld, dtype=bool)
 
-        if self._vdl:
+        # these 3 should be copied for all
+        vol_dt = np.dtype([
+            ('cts', np.int64, (self._mwi,)),
+            ('lab', np.int64, (self._mwi,)),
+            ('idx', np.int64, (self._mwi, self._mss)),
+            ('dts', np.int64, (self._mwi, self._mss))])
 
-            # these 3 should be copied for all
-            vol_dt = np.dtype([
-                ('cts', np.int64, (self._mwi,)),
-                ('lab', np.int64, (self._mwi,)),
-                ('idx', np.int64, (self._mwi, self._mss)),
-                ('dts', np.int64, (self._mwi, self._mss))])
+        vol_cts = np.zeros(self._mwi, dtype=np.int64, order='c')
+        vol_lab = vol_cts.copy()
+        vol_idx = np.zeros(
+            (self._mwi, self._mss), dtype=np.int64, order='c')
+        vol_dts = vol_idx.copy()
 
-            vol_cts = np.zeros(self._mwi, dtype=np.int64, order='c')
-            vol_lab = vol_cts.copy()
-            vol_idx = np.zeros(
-                (self._mwi, self._mss), dtype=np.int64, order='c')
-            vol_dts = vol_idx.copy()
+        self._rudts = np.array(
+            (vol_cts, vol_lab, vol_idx, vol_dts),
+            dtype=vol_dt,
+            order='c')
 
-            self._rudts = np.array(
-                (vol_cts, vol_lab, vol_idx, vol_dts),
-                dtype=vol_dt,
-                order='c')
-
-            if self._rt_df_flag:
-                self._tudts = self._rudts.copy()
+        self._tudts = self._rudts.copy()
 
         if self._bs_flag:
             if self._rt_df_flag:
@@ -711,11 +712,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             self._pld = self._upld.copy()
 
-            if self._vdl:
-                self._rpdts = self._rudts.copy()
+            self._rpdts = self._rudts.copy()
 
-                if self._rt_df_flag:
-                    self._tpdts = self._rpdts.copy()
+            self._tpdts = self._rpdts.copy()
 
             if self._bs_flag:
                 self._pld_bs_ul = np.full(self._pld.shape, -np.inf)
