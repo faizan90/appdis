@@ -37,10 +37,10 @@ def main():
     in_refr_var_file = main_dir / r'neckar_norm_cop_infill_discharge_1950_2017_20180716.csv'
     in_test_var_file = main_dir / r'valid_kfold_01__cats_outflow.csv'
 
-    n_uvecs = int(5e2)
+    n_uvecs = int(7e3)
     n_cpus = 'auto'
     n_dims = 6
-    ws = 10  # window size
+    ws = 20  # window size
     analysis_style = 'peel'
     time_win_type = 'year'
     n_ticks = 20
@@ -48,9 +48,9 @@ def main():
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
-    beg_date = '1970-01-01'
-    end_date = '1990-12-31'
-    stn = 420
+    beg_date = '1960-01-01'
+    end_date = '2015-12-31'
+    stn = 411
 
     peel_depth = 1  # greater than this are kept
     n_boots = 0
@@ -59,7 +59,7 @@ def main():
     vol_data_lev = 1
     loo_flag = True
     max_allowed_corr = 0.5
-    app_dis_cb_max = 10
+    app_dis_cb_max = 30
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -68,7 +68,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-    ann_flag = True
+#     ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -90,7 +90,7 @@ def main():
 #                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
 #                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
 
-    out_dir = (f'refr_test_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
+    out_dir = (f'refr_refr_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_{stn}')
 

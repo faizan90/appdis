@@ -9,6 +9,7 @@ from timeit import default_timer
 import h5py
 import numpy as np
 import pandas as pd
+# import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
@@ -21,7 +22,6 @@ from .cyth import get_corrcoeff, get_asymms_sample, get_2d_rel_hist
 plt.ioff()
 
 
-# TODO: add chull plots for each window. All with same xy lims.
 class AppearDisappearPlot:
 
     '''Plot the results of AppearDisappearAnalysis, from the HDF5 file.'''
@@ -660,6 +660,8 @@ class AppearDisappearPlot:
 
     def _plot_app_dis(self, plot_arr, out_fig_name, arr_lab):
 
+#         mpl.rc('font', size=16)
+
         assert self._bef_plot_vars_set
 
         plt.figure(figsize=(13, 13))
@@ -733,6 +735,8 @@ class AppearDisappearPlot:
 
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()
+
+#         mpl.rcdefaults()
         return
 
     def _plot_bs_case(
