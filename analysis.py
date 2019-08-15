@@ -25,16 +25,16 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
     '''Perform the appearing and disappearing events analysis
 
-    Using Tukey's depth function and dividing the time series into
+    Using the Tukey's depth function and dividing the input data into
     windows (N events per window), this class computes ratios of events
     that have appeared or disappeared for any two given time windows (with
     respect to the test window).
 
-    The time window can be a set of consecutive years or months. Events in
-    test window are checked for containment inside the reference window.
-    Points that have a depth of zero in the reference window are considered
-    disappearing if the reference window is ahead of the test window in time
-    and appearing if vice versa.
+    The time window can be a set of consecutive years or months or steps.
+    Events in test window are checked for containment inside the
+    reference window. Points that have a depth of zero in the reference
+    window are considered disappearing if the reference window is ahead
+    of the test window in steps and appearing if vice versa.
 
     For example, consider a dataset of 200 time steps (rows) and 2
     stations (columns). First 100 time steps are set as reference and the
@@ -43,7 +43,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
     computed. Tukey's depth funtion returns a zero for any point that is
     outside the convex hull (created by the points in the reference
     dataset). It returns a one if a point lies on the convex
-    hull. Let's say 10 points' depth is zero. So for this specific case,
+    hull. Let's say 10 points' depth are zero. So for this specific case,
     we have 10 appearing situations which is ten percent of the test
     window. This is the main output of this analysis. Based on the
     specified parameters, other outputs are also computed.
@@ -224,6 +224,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             elif self._t_idx_t == 'range':
                 assert self._twt == 'range', (
                     'Incompatible time_index and time_window_type!')
+
                 assert self._pl_dth < self._ws, (
                     'peel_depth cannot be greater than window_size '
                     'in this case!')
@@ -291,7 +292,10 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 _ridx = np.where(ris)[0]
                 rbeg_time = self._t_idx[_ridx[+0]]
                 rend_time = self._t_idx[_ridx[-1]]
-                print('Reference begin and end time:', rbeg_time, rend_time)
+                print(
+                    'Reference begin and end time/step:',
+                    rbeg_time,
+                    rend_time)
 
             refr = crefr_arr[ris, :].copy('c')
 
@@ -321,7 +325,10 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     _tidx = np.where(tis)[0]
                     tbeg_time = self._t_idx[_tidx[+0]]
                     tend_time = self._t_idx[_tidx[-1]]
-                    print('\tTest begin and end time:', tbeg_time, tend_time)
+                    print(
+                        '\tTest begin and end time/step:',
+                        tbeg_time,
+                        tend_time)
 
                 test = ctest_arr[tis, :].copy('c')
 
@@ -400,7 +407,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         assert path.exists(), 'Input file not found!'
         assert path.is_file(), 'Input is not a file!'
 
-        self._h5_hdl = h5py.File(str(path), driver='core', mode='a')
+        self._h5_hdl = h5py.File(str(path), driver=None, mode='a')
 
         h5_dss_list = []
 
@@ -439,6 +446,12 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             self._t_idx = pd.to_datetime(self._t_idx, unit='s')
 
+        elif self._twt == 'range':
+            pass
+
+        else:
+            raise NotImplementedError
+
         self._out_dir = Path(self._out_dir)
 
         self._rsm_hdf5_flag = True
@@ -447,8 +460,11 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         if self.verbose:
             print('Loaded data from HDF5.')
+
             not_cmptd_idxs = (np.isnan(self._upld.ravel())).sum()
+
             tot_idxs = self._upld.ravel().shape[0]
+
             print(f'{not_cmptd_idxs} steps out of {tot_idxs} to go!')
 
         self.cmpt_appear_disappear()
@@ -523,7 +539,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                 win_rng.append(date.year - t_idx_0)
 
         elif self._twt == 'range':
-            win_rng = np.arange(self._n_data_pts, dtype=np.int64, order='c')
+            win_rng = np.arange(self._n_data_pts, dtype=np.int64)
 
         else:
             raise NotImplementedError
@@ -533,7 +549,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         max_val = win_rng.max()
 
-        assert np.all(win_rng >= 0), 'time_index is not ascending!'
+        assert np.all(win_rng >= 0), 'win_rng is not ascending!'
+
         assert max_val > self._ws, (
             'Number of possible windows less than window_size!')
 
@@ -689,7 +706,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
     def _gen_cts_dts_idxs(self, dataset):
 
         '''Save counts of points that are on the chull of the peeled and
-        unpeeled datasets i.e. reference and test. Doing this here and
+        unpeeled datasets i.e. reference and test. Doing this here to
         saves some complications.
         '''
 
@@ -761,8 +778,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             print('Initializing HDF5...')
 
         self._h5_path = self._out_dir / 'app_dis_ds.hdf5'
-        self._h5_hdl = h5py.File(
-            str(self._h5_path), mode='w', driver='core')
+
+        self._h5_hdl = h5py.File(str(self._h5_path), mode='w', driver=None)
 
         # sequence matters
         h5_dss_list = list(self._h5_ds_names[:5])
@@ -804,6 +821,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
                     dss[lab] = (self._t_idx - _min_t) // _td
 
+                elif (self._twt == 'range') and (lab == '_t_idx'):
+                    dss[lab] = self._t_idx.copy()
+
                 else:
                     raise KeyError(
                         f'Don\'t know how to handle the variable {lab} of '
@@ -817,7 +837,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
     def _aft_app_dis(self):
 
-        '''Things to do write after the analysis finishes'''
+        '''Things to do after the analysis finishes'''
 
         assert self._app_dis_done_flag
 
@@ -1092,8 +1112,16 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         grp_name = 'bd_pts'
 
-        _td = pd.Timedelta('1s')
-        _min_t = pd.Timestamp("1970-01-01")
+        if (self._twt == 'month') or (self._twt == 'year'):
+            _td = pd.Timedelta('1s')
+            _min_t = pd.Timestamp("1970-01-01")
+
+        elif self._twt == 'range':
+            _td = 1
+            _min_t = 1
+
+        else:
+            raise NotImplementedError
 
         if grp_name not in self._h5_hdl:
             bd_pts_gr = self._h5_hdl.create_group(grp_name)
@@ -1390,6 +1418,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         elif self._twt == 'range':
             lab_cond = 3
 
+        else:
+            raise NotImplementedError
+
         idxs_rng = np.arange(self._mwi)
 
         if self._mp_pool is not None:
@@ -1415,7 +1446,6 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             mwi_gen = (
                 idxs_rng[mp_idxs[i]:mp_idxs[i + 1]]
-
                 for i in range(n_cpus))
 
             # use of map is necessary to keep order
@@ -1476,7 +1506,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         if mp_cond:
             path, dts_path, data_path = args[4:]
 
-            h5_hdl = h5py.File(path, driver='core', mode='r')
+            h5_hdl = h5py.File(path, driver=None, mode='r')
 
             dts_arr = h5_hdl[dts_path][...]
             data_arr = h5_hdl[data_path][...]
@@ -1502,6 +1532,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             elif lab_cond == 3:
                 lab = lab_int
+
+            else:
+                NotImplementedError
 
             labs.append(lab)
 
@@ -1580,7 +1613,8 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
             assert np.any(take_idxs), 'No time steps selected!'
 
-            data_pts = self._refr_data_arr[take_idxs, :self._ans_dims].copy('c')
+            data_pts = self._refr_data_arr[
+                take_idxs, :self._ans_dims].copy('c')
 
             dts = self._get_dts(data_pts, data_pts)
 

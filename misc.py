@@ -62,7 +62,7 @@ def cnvt_ser_to_mult_dims_df(in_ser, res_freq):
     res_shape = -1, res_freq
 
     n_res_vals = in_ser.shape[0] - (in_ser.shape[0] % res_freq)
-    assert n_res_vals
+    assert n_res_vals > 0
 
     res_vals = in_ser.values[:n_res_vals].reshape(res_shape)
 

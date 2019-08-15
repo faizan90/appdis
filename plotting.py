@@ -9,7 +9,6 @@ from timeit import default_timer
 import h5py
 import numpy as np
 import pandas as pd
-# import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import Colormap
 from matplotlib.cm import cmap_d
@@ -340,6 +339,7 @@ class AppearDisappearPlot:
 
         # correlation matrix
         plt.figure(figsize=(10, 10))
+
         plt.imshow(
             self._fca,
             origin='lower',
@@ -660,8 +660,6 @@ class AppearDisappearPlot:
 
     def _plot_app_dis(self, plot_arr, out_fig_name, arr_lab):
 
-#         mpl.rc('font', size=16)
-
         assert self._bef_plot_vars_set
 
         plt.figure(figsize=(13, 13))
@@ -671,7 +669,7 @@ class AppearDisappearPlot:
             vals = np.unique(self._t_idx.year)
             labs = vals
 
-            xylab = 'year'
+            xylab = self._twt
 
         elif self._twt == 'month':
             vals = np.unique(self._mwr)
@@ -685,7 +683,13 @@ class AppearDisappearPlot:
 
                 labs.append(f'{year}-{mth:02d}')
 
-            xylab = 'month'
+            xylab = self._twt
+
+        elif self._twt == 'range':
+            vals = np.unique(self._mwr)
+            labs = vals.copy()
+
+            xylab = 'step'
 
         else:
             raise NotImplementedError
@@ -736,7 +740,6 @@ class AppearDisappearPlot:
         plt.savefig(str(self._out_dir / out_fig_name), bbox_inches='tight')
         plt.close()
 
-#         mpl.rcdefaults()
         return
 
     def _plot_bs_case(
@@ -796,7 +799,7 @@ class AppearDisappearPlot:
             vals = np.unique(self._t_idx.year)
             labs = vals
 
-            xylab = 'year'
+            xylab = self._twt
 
         elif self._twt == 'month':
             vals = np.unique(self._mwr)
@@ -809,7 +812,13 @@ class AppearDisappearPlot:
 
                 labs.append(f'{year}-{mth:02d}')
 
-            xylab = 'month'
+            xylab = self._twt
+
+        elif self._twt == 'range':
+            vals = np.unique(self._mwr)
+            labs = vals.copy()
+
+            xylab = 'step'
 
         else:
             raise NotImplementedError
@@ -875,7 +884,7 @@ class AppearDisappearPlot:
         '''
 
         plt.suptitle(ttl, x=0, y=1, ha='left')
-#
+
         plt.tight_layout(rect=(0, 0, 0.85, 0.85))  #
 
         n_tick_vals = x.shape[0] - 1
@@ -933,8 +942,9 @@ class AppearDisappearPlot:
 
     def _plot_bs(self):
 
-        '''Plot appearing disappearing cases along with bootstrapping
-        results'''
+        '''
+        Plot appearing disappearing cases along with bootstrapping results
+        '''
 
         if self.verbose:
             print('Plotting unpeeled bootstrap case...')
@@ -1096,6 +1106,15 @@ class AppearDisappearPlot:
 
         vol_corr = dss.attrs[f'_{dlabs[0]}vbs_vol_corr']
 
+        if self._twt == 'month' or self._twt == 'year':
+            xylab = self._twt
+
+        elif self._twt == 'range':
+            xylab = 'step'
+
+        else:
+            raise NotImplementedError
+
         ttl = f'''
         %s
 
@@ -1107,9 +1126,9 @@ class AppearDisappearPlot:
         Bootstraps: {self._n_vbs}
         Dataset: {dlabs[1]}
         Diff. refr-test: {self._diff_data_lab}
-        Window size: {self._ws} {self._twt}(s)
+        Window size: {self._ws} {xylab}(s)
         Peeled-Unpeeled volume correlation: {vol_corr: 0.4f}
-        Starting, ending {self._twt}(s): {_ulabs[0]}, {_ulabs[-1]}
+        Starting, ending {xylab}(s): {_ulabs[0]}, {_ulabs[-1]}
         '''
 
         # chull volumes
@@ -1180,6 +1199,15 @@ class AppearDisappearPlot:
         _, axs = plt.subplots(
             nrows=self._ans_dims, ncols=1, figsize=(19, 7), sharex=True)
 
+        if self._twt == 'month' or self._twt == 'year':
+            xylab = self._twt
+
+        elif self._twt == 'range':
+            xylab = 'step'
+
+        else:
+            raise NotImplementedError
+
         ttl = f'''
         Analysed dimensions time series comparison
 
@@ -1190,7 +1218,7 @@ class AppearDisappearPlot:
         Peeling depth: {self._pl_dth}
         Dataset: {labs[0]}
         Diff. refr-test: {self._diff_data_lab}
-        Window size: {self._ws} {self._twt}(s)
+        Window size: {self._ws} {xylab}(s)
         '''
 
         for i in range(self._ans_dims):

@@ -29,7 +29,7 @@ class AppearDisappearSettings:
         self.verbose = verbose
 
         self._poss_ans_stls = ['un_peel', 'peel', 'alt_peel']
-        self._poss_time_wins = ['month', 'year']  # , 'range'
+        self._poss_time_wins = ['month', 'year', 'range']
 
         self._bs_flag = False
         self._hdf5_flag = True
@@ -75,7 +75,7 @@ class AppearDisappearSettings:
             If 'alt_peel' then use peeled windows against unpeeled windows
             and vice versa.
             Setting a successive option computes the values for the all
-            the last ones as well. e.g. 'alt_peel' will compute values for
+            the preceeding as well. e.g. 'alt_peel' will compute values for
             'un_peel' and 'peel' cases as well.
         peel_depth : int
             Points with depths greater than peel_depth are removed to create
@@ -94,11 +94,13 @@ class AppearDisappearSettings:
 
         assert isinstance(time_window_type, str), (
             'time_window_type not a string!')
+
         assert time_window_type in self._poss_time_wins, (
             f'time_window_type can only be one of {self._poss_time_wins}!')
 
         assert isinstance(analysis_style, str), (
             'analysis_style not a string!')
+
         assert analysis_style in self._poss_ans_stls, (
             f'analysis_style can only be one of {self._poss_ans_stls}!')
 
@@ -149,6 +151,8 @@ class AppearDisappearSettings:
 
         assert isinstance(out_dir, (str, Path)), (
             'out_dir not a string or pathlib.Path object!')
+
+        assert isinstance(exist_ok, bool), 'exist_ok not a boolean object!'
 
         out_dir = Path(out_dir).resolve()
 

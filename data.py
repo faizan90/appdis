@@ -4,8 +4,8 @@ Created on Aug 8, 2018
 @author: Faizan-Uni
 '''
 from timeit import default_timer
-import psutil
 
+import psutil
 import numpy as np
 import pandas as pd
 
@@ -19,8 +19,7 @@ class AppearDisappearData:
     This is a base class.
     '''
 
-    def __init__(
-            self, verbose=True, copy_input=False, mutability=False):
+    def __init__(self, verbose=True, copy_input=False, mutability=False):
 
         '''
         Parameters
@@ -29,7 +28,7 @@ class AppearDisappearData:
             Print activity messages if True.
         copy_input : bool
             Make copies of input data if True. This will result in more
-            memory consumption.
+            memory consumption if True.
         mutability : bool
             The writable flag of all input arrays. If False arrays become
             read-only. This applies regardless of the value of copy_input.
@@ -123,6 +122,9 @@ class AppearDisappearData:
                 assert self._t_idx.shape[0] == data_arr.shape[0], (
                     f'Unequal lengths of {darr_lab} and time_index!')
 
+            assert np.all(np.isfinite(data_arr)), (
+                f'Invalid values in {darr_lab}!')
+
             if self._copy_input:
                 setattr(
                     self,
@@ -145,6 +147,9 @@ class AppearDisappearData:
 
             if not self._rt_df_flag:
                 print('Reference and Test data array are equal!')
+
+            else:
+                print('Reference and Test data array are not equal!')
 
         self._data_arrs_set_flag = True
         return
@@ -178,14 +183,17 @@ class AppearDisappearData:
             if not self._copy_input:
                 assert time_index.flags.c_contiguous, (
                     'time_index not c-contiguous!')
+
                 assert time_index.dtype.type is np.int64, (
-                'time_index should have the dtype of np.int64!')
+                    'time_index should have the dtype of np.int64!')
 
         else:
             raise NotImplementedError
 
         assert time_index.ndim == 1, 'Time index has to be 1D!'
-        assert np.all(_dfs > 0), 'Repeating times in time_index!'
+
+        assert np.all(_dfs > 0), (
+            'Repeating or invalid or non-ascending values in time_index!')
 
         if self._data_arrs_set_flag:
             assert time_index.shape[0] == self._n_data_pts, (
@@ -193,11 +201,16 @@ class AppearDisappearData:
 
         if self._copy_input:
             if time_index_type == 'time':
-                self._t_idx = pd.DatetimeIndex(time_index)
+                self._t_idx = pd.DatetimeIndex(time_index, copy=True)
 
             elif time_index_type == 'range':
-                self._t_idx = np.array(time_index, dtype=np.int64, order='c')
+                self._t_idx = np.array(
+                    time_index, dtype=np.int64, order='c', copy=True)
+
                 self._t_idx.flags.writeable = self._mtbl_flag
+
+            else:
+                raise NotImplementedError
 
         else:
             self._t_idx = time_index
@@ -206,8 +219,9 @@ class AppearDisappearData:
 
         if self.verbose:
             print(3 * '\n', 50 * '#', sep='')
-            print(f'Time index set with a total length of '
-                  f'{self._t_idx.shape[0]} and type: {self._t_idx_t}.')
+            print(
+                f'Time index set with a total length of '
+                f'{self._t_idx.shape[0]} and type: {self._t_idx_t}.')
 
         self._time_index_set_flag = True
         return
@@ -220,7 +234,8 @@ class AppearDisappearData:
         ----------
         uvecs : 2D float64 np.ndarray
             Each row is a unit vector with columns less than equal to that
-            of the refr_data_arr columns. Actual dimensions depend on the user.
+            of the refr_data_arr columns.
+            Dimensions of the analysis are the number of columns in uvecs.
         '''
 
         assert isinstance(uvecs, np.ndarray), 'uvecs not a numpy arrays!'
@@ -237,8 +252,12 @@ class AppearDisappearData:
             assert uvecs.shape[1] <= self._n_data_dims, (
                 'uvecs have more columns than those of refr_data_arr!')
 
+        assert np.all(np.isfinite(uvecs)), (
+            'Invalid values in the supplied unit vectors!')
+
         if self._copy_input:
-            self._uvecs = np.array(uvecs, dtype=np.float64, order='c')
+            self._uvecs = np.array(
+                uvecs, dtype=np.float64, order='c', copy=True)
 
         else:
             self._uvecs = uvecs
@@ -271,7 +290,7 @@ class AppearDisappearData:
             Number of unit vectors to generate.
         n_cpus : str, int
             Number of threads used to generate the vectors.
-            If 'auto' then use maximum available threads - one.
+            If 'auto' then use maximum available threads minus one.
         '''
 
         assert isinstance(n_uvec_dims, int), 'n_uvec_dims not an integer!'
@@ -279,6 +298,7 @@ class AppearDisappearData:
 
         assert (n_uvec_dims > 0), (
             'Dimensions of unit vectors cannot be less than one!')
+
         assert (n_uvecs > 0), (
             'Number of unit vectors cannot be less than one!')
 
@@ -302,6 +322,9 @@ class AppearDisappearData:
         begt = default_timer()
         uvecs = gen_usph_vecs(n_uvecs, n_uvec_dims, n_cpus)
         tott = default_timer() - begt
+
+        assert np.all(np.isfinite(uvecs)), (
+            'Invalid values in the generated unit vectors!')
 
         self._uvecs = uvecs
         self._n_uvecs = uvecs.shape[0]
@@ -337,8 +360,9 @@ class AppearDisappearData:
             'Unit vectors have more columns than those of refr_data_arr!')
 
         uvec_mags = (self._uvecs ** 2).sum(axis=1) ** 0.5
+
         assert np.all(np.isclose(uvec_mags, 1.0)), (
-            'Unit vectors have magnitudes unequal to one!')
+            'At least one unit vector has its magnitude not equal to one!')
 
         if self.verbose:
             print(3 * '\n', 50 * '#', sep='')

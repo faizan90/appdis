@@ -35,7 +35,7 @@ class AppearDisappearVectorSelection(ADDA):
         Parameters
         ----------
         initial_annealing_temperature : float
-            Is what it says.
+            Is what it says. Should be greater than zero.
         temperature_reduction_alpha : float
             The ratio by which to reduce the annealing temperature after
             update_at_every_iteration_no number of iteration. It has to be

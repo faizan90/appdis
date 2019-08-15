@@ -3,6 +3,10 @@
 
 '''
 
+# import matplotlib as mpl
+# mpl.rc('font', size=16)
+# mpl.rcdefaults()
+
 from .data import AppearDisappearData
 from .settings import AppearDisappearSettings
 from .analysis import AppearDisappearAnalysis

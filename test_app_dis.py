@@ -40,15 +40,15 @@ def main():
     n_uvecs = int(7e3)
     n_cpus = 'auto'
     n_dims = 6
-    ws = 20  # window size
+    ws = int(20 * 365 / 6)  # window size
     analysis_style = 'peel'
-    time_win_type = 'year'
+    time_win_type = 'range'
     n_ticks = 20
     cmap = 'jet'
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
-    beg_date = '1960-01-01'
+    beg_date = '1961-06-01'
     end_date = '2015-12-31'
     stn = 411
 
@@ -68,7 +68,7 @@ def main():
 
 #     sel_idxs_flag = True
 #     take_rest_flag = True
-#     ann_flag = True
+    ann_flag = True
     plot_flag = True
 
     if sel_idxs_flag:
@@ -90,7 +90,7 @@ def main():
 #                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
 #                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
 
-    out_dir = (f'refr_refr_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
+    out_dir = (f'range_refr_refr_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_{stn}')
 
@@ -129,7 +129,8 @@ def main():
         res_refr_df = cnvt_ser_to_mult_dims_df(in_refr_ser, n_dims)
 
         tot_refr_var_arr = res_refr_df.values.copy('c')
-        time_idx = res_refr_df.index
+        # time_idx = res_refr_df.index
+        time_idx = np.arange(0, tot_refr_var_arr.shape[0]).astype(np.int64)
 
         in_test_df = pd.read_csv(in_test_var_file, index_col=0, sep=sep)
         in_test_df.index = pd.to_datetime(in_test_df.index, format=time_fmt)
@@ -190,7 +191,7 @@ def main():
         if vol_data_lev:
             ad_plot.plot_volumes()
 
-#             ad_plot.plot_ecops()
+            ad_plot.plot_ecops()
     return
 
 
