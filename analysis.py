@@ -93,6 +93,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             '_loo_flag',
             '_mvds',
             '_pl_flag',
+            '_tuss',
             )
 
         self._opt_vars_labs = (
@@ -114,6 +115,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             '_mwr',
             '_mwi',
             '_mss',
+            '_ws_inc',
             )
 
         self._app_dis_vars_labs = (
@@ -284,7 +286,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             if np.all(self._dn_flg[i, :]):
                 continue
 
-            ris = (self._mwr >= i) & (self._mwr < (i + self._ws))
+            ris = (self._mwr >= i) & (self._mwr < (i + self._ws_inc))
             if not ris.sum():
                 continue
 
@@ -317,7 +319,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
                     self._set_to_zero(i, self._pl_flag)
                     continue
 
-                tis = (self._mwr >= j) & (self._mwr < (j + self._ws))
+                tis = (self._mwr >= j) & (self._mwr < (j + self._ws_inc))
                 if not tis.sum():
                     continue
 
@@ -532,14 +534,23 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             for date in self._t_idx:
                 win_rng.append(monthmod(t_idx_0, date)[0].months)
 
+            self._ws_inc = self._ws
+
         elif self._twt == 'year':
             t_idx_0 = self._t_idx[0].year
 
             for date in self._t_idx:
                 win_rng.append(date.year - t_idx_0)
 
+            self._ws_inc = self._ws
+
         elif self._twt == 'range':
-            win_rng = np.arange(self._n_data_pts, dtype=np.int64)
+            n_wins = int(np.ceil(self._n_data_pts / self._tuss))
+
+            win_rng = np.repeat(
+                np.arange(n_wins), self._tuss)[:self._n_data_pts]
+
+            self._ws_inc = int(self._ws // self._tuss)
 
         else:
             raise NotImplementedError
@@ -551,17 +562,17 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         assert np.all(win_rng >= 0), 'win_rng is not ascending!'
 
-        assert max_val > self._ws, (
+        assert max_val > self._ws_inc, (
             'Number of possible windows less than window_size!')
+
+        unq_win_rng_vals = np.unique(win_rng)
 
         if (self._twt == 'month') or (self._twt == 'year'):
 
-            unq_vals = np.unique(win_rng)
-            mwi = unq_vals.shape[0] - self._ws
+            mwi = unq_win_rng_vals.shape[0] - self._ws
 
         elif self._twt == 'range':
-            mwi = win_rng.shape[0] - self._ws
-            # max ct not implemented yet!
+            mwi = unq_win_rng_vals.shape[0] - self._ws_inc
 
         self._mwr = win_rng
         self._mwi = mwi + 1
@@ -571,13 +582,19 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         max_steps = 0
         for i in range(self._mwi):
-            ris = (self._mwr >= i) & (self._mwr < (i + self._ws))
+            ris = (self._mwr >= i) & (self._mwr < (i + self._ws_inc))
             max_steps = max(max_steps, ris.sum())
 
         max_steps = int(max_steps)
         assert max_steps, 'This should not happen!'
 
         self._mss = max_steps
+
+        if self.verbose:
+            print('_mwi:', self._mwi)
+            print('_mss:', self._mss)
+            print('_mwr:', self._mwr)
+            print('unq_win_rng_vals:', unq_win_rng_vals)
 
         self._mw_rng_cmptd_flag = True
         return
@@ -728,7 +745,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             raise NotImplementedError
 
         for i in range(self._mwi):
-            didxs = (self._mwr >= i) & (self._mwr < (i + self._ws))
+            didxs = (self._mwr >= i) & (self._mwr < (i + self._ws_inc))
             if not didxs.sum():
                 continue
 
@@ -1546,6 +1563,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             n_chull_pts = bd_idxs.shape[0]
 
             vols.append(ConvexHull(hull_pts).volume)
+
             n_chull_cts.append(n_chull_pts)
 
             if loo_flag:
@@ -1593,7 +1611,7 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             gen_ct = 0
             while gen_ct < max_gen_ct:
                 rand_seq = np.random.choice(
-                    tot_rand_rng, size=self._ws, replace=True)
+                    tot_rand_rng, size=self._ws_inc, replace=True)
 
                 gen_ct += 1
 

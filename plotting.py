@@ -694,7 +694,7 @@ class AppearDisappearPlot:
         else:
             raise NotImplementedError
 
-        x = np.arange(vals[0] - 0.5, vals[-1] + 2.5 - self._ws, 1)
+        x = np.arange(vals[0] - 0.5, vals[-1] + 2.5 - self._ws_inc, 1)
 
         xcs, ycs = np.meshgrid(x, x, indexing='ij')
 

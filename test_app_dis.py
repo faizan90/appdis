@@ -40,15 +40,16 @@ def main():
     n_uvecs = int(7e3)
     n_cpus = 'auto'
     n_dims = 6
-    ws = int(20 * 365 / 6)  # window size
+    ws = 20  # int(20 * 365 // n_dims)  # window size
     analysis_style = 'peel'
-    time_win_type = 'range'
+    time_win_type = 'year'
     n_ticks = 20
     cmap = 'jet'
+    time_unit_step_size = int(365 // n_dims)
 
     sep = ';'
     time_fmt = '%Y-%m-%d'
-    beg_date = '1961-06-01'
+    beg_date = '1962-01-01'
     end_date = '2015-12-31'
     stn = 411
 
@@ -59,7 +60,7 @@ def main():
     vol_data_lev = 1
     loo_flag = True
     max_allowed_corr = 0.5
-    app_dis_cb_max = 30
+    app_dis_cb_max = 10
 
     sel_idxs_flag = False
     take_rest_flag = False
@@ -86,13 +87,11 @@ def main():
     if analysis_style == 'un_peel':
         peel_depth = 0
 
-#     out_dir = (f'anom_pca_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
-#                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-#                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}')
+    out_dir = 'benchmark_year'
 
-    out_dir = (f'range_refr_refr_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
-               f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
-               f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_{stn}')
+#     out_dir = (f'range_refr_refr_{n_uvecs:1.0E}_uvecs_{n_dims}_dims_{ws}_ws_'
+#                f'{analysis_style}_as_{time_win_type}_twt_{n_boots}_bs_'
+#                f'{peel_depth}_pldt_{nv_boots}_vbs{sel_idxs_lab}{rest_lab}_{stn}')
 
     print('out_dir:', out_dir)
 
@@ -129,10 +128,11 @@ def main():
         res_refr_df = cnvt_ser_to_mult_dims_df(in_refr_ser, n_dims)
 
         tot_refr_var_arr = res_refr_df.values.copy('c')
-        # time_idx = res_refr_df.index
-        time_idx = np.arange(0, tot_refr_var_arr.shape[0]).astype(np.int64)
+        time_idx = res_refr_df.index
+#         time_idx = np.arange(0, tot_refr_var_arr.shape[0]).astype(np.int64)
 
-        in_test_df = pd.read_csv(in_test_var_file, index_col=0, sep=sep)
+        # in_test_df = pd.read_csv(in_test_var_file, index_col=0, sep=sep)
+        in_test_df = in_refr_df.copy()
         in_test_df.index = pd.to_datetime(in_test_df.index, format=time_fmt)
         in_test_ser = in_test_df.loc[beg_date:end_date, str(stn)]
 
@@ -140,7 +140,7 @@ def main():
         tot_test_var_arr = res_test_df.values.copy('c')
 
         ad_ans = AppearDisappearAnalysis()
-        ad_ans.set_data_arrays(tot_refr_var_arr, tot_test_var_arr, True)
+        ad_ans.set_data_arrays(tot_refr_var_arr, tot_test_var_arr, False)
         ad_ans.set_time_index(time_idx)
         ad_ans.generate_and_set_unit_vectors(n_dims, n_uvecs, n_cpus)
 
@@ -149,7 +149,8 @@ def main():
             ws,
             analysis_style,
             peel_depth,
-            n_cpus)
+            n_cpus,
+            time_unit_step_size)
 
         if sel_idxs_flag:
             ad_ans.set_optimization_parameters(
@@ -191,7 +192,7 @@ def main():
         if vol_data_lev:
             ad_plot.plot_volumes()
 
-            ad_plot.plot_ecops()
+#             ad_plot.plot_ecops()
     return
 
 

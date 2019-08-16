@@ -50,7 +50,8 @@ class AppearDisappearSettings:
             window_size,
             analysis_style,
             peel_depth=0,
-            n_cpus='auto'):
+            n_cpus='auto',
+            time_unit_step_size=0):
 
         '''Set the basic parameters for the appearing-disppearing analysis.
 
@@ -114,6 +115,16 @@ class AppearDisappearSettings:
         else:
             n_cpus = max(1, psutil.cpu_count() - 1)
 
+        assert isinstance(time_unit_step_size, int)
+
+        if time_window_type == 'range':
+            assert time_unit_step_size > 0
+            assert window_size >= time_unit_step_size
+            self._tuss = time_unit_step_size
+
+        else:
+            self._tuss = 0
+
         self._ws = window_size
         self._twt = time_window_type
         self._ans_stl = analysis_style
@@ -132,6 +143,7 @@ class AppearDisappearSettings:
             print(f'\tAnalysis dimensions: {self._ans_dims}')
             print(f'\tPeeling depth: {self._pl_dth}')
             print(f'\tN. cpus: {self._n_cpus}')
+            print(f'\tTime unit step size: {self._tuss}')
 
         self._ans_prms_set_flag = True
         return
