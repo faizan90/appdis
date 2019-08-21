@@ -253,6 +253,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
 
         '''Perform the analysis after all the inputs are set and ready.'''
 
+        assert not self._bs_flag, 'NotImplemented!'
+        assert not self._vbs_flag, 'NotImplemented!'
+
         self._bef_app_dis()
 
         assert self._ann_vrfd_flag, 'Inputs unverfied. Call verify first!'
@@ -383,8 +386,9 @@ class AppearDisappearAnalysis(ADVS, ADSS):
         tott = default_timer() - begt
 
         if self.verbose:
-            print(f'Done computing appearing and disappearing cases in '
-                  f'{tott:0.3f} secs.')
+            print(
+                f'Done computing appearing and disappearing cases in '
+                f'{tott:0.3f} secs.')
 
         self._app_dis_done_flag = True
         self._aft_app_dis()
@@ -1537,6 +1541,10 @@ class AppearDisappearAnalysis(ADVS, ADSS):
             ct = dts_arr['cts'][i]
 
             dts = dts_arr['dts'][i, :ct]
+
+            assert (dts == 1).sum() >= 2, (
+                'At least two points must have a depth of one!')
+
             idxs = dts_arr['idx'][i, :ct]
 
             lab_int = dts_arr['lab'][i]

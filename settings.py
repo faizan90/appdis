@@ -64,7 +64,7 @@ class AppearDisappearSettings:
             The last two options allow us to get around the situations
             of leap year and the number of days in each month being unqual.
         window_size : int
-            Depending on time_window_type, take window_size events per
+            Depending on time_window_type, take window_size steps per
             window.
         analysis_style : str
             Three styles of analysis are allowed.
@@ -84,6 +84,12 @@ class AppearDisappearSettings:
         n_cpus : str, int
             Number of threads used by the depth function.
             If 'auto' then use one less than the maximum available threads.
+        time_unit_step_size : int
+            The number of points that define number of steps per time unit
+            if the time_window_type is 'range'. Its value is analogous to the
+            number of days in a year if daily data is used and
+            time_window_type is 'year'. For 'month' and 'year'
+            time_window_type it is ignored.
         '''
 
         assert isinstance(window_size, int), 'window_size not an integer!'
@@ -115,9 +121,8 @@ class AppearDisappearSettings:
         else:
             n_cpus = max(1, psutil.cpu_count() - 1)
 
-        assert isinstance(time_unit_step_size, int)
-
         if time_window_type == 'range':
+            assert isinstance(time_unit_step_size, int)
             assert time_unit_step_size > 0
             assert window_size >= time_unit_step_size
             self._tuss = time_unit_step_size
