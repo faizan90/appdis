@@ -21,7 +21,7 @@ cdef DT_D get_mean(DT_D[:] in_arr) nogil:
 
     n = in_arr.shape[0]
 
-    for i in xrange(n):
+    for i in range(n):
         _sum += in_arr[i]
 
     return _sum / n
@@ -35,7 +35,7 @@ cdef DT_D get_variance(DT_D in_arr_mean, DT_D[:] in_arr) nogil:
 
     n = in_arr.shape[0]
 
-    for i in xrange(n):
+    for i in range(n):
         _sum += (in_arr[i] - in_arr_mean)**2
 
     return _sum / (n)
@@ -53,7 +53,7 @@ cdef DT_D get_covar(
 
     n = in_arr_1.shape[0]
 
-    for i in xrange(n):
+    for i in range(n):
         _sum += (in_arr_1[i] - in_arr_1_mean) * (in_arr_2[i] - in_arr_2_mean)
 
     return _sum / n
@@ -96,7 +96,7 @@ cpdef dict get_asymms_sample(DT_D[:] u, DT_D[:] v):
     asymm_1 = 0.0
     asymm_2 = 0.0
 
-    for i in xrange(n_vals):
+    for i in range(n_vals):
         asymm_1 += (u[i] + v[i] - 1)**3
         asymm_2 += (u[i] - v[i])**3
 
