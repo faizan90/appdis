@@ -847,7 +847,7 @@ class AppearDisappearPlot:
             xcs,
             ycs,
             comp_arr,
-            cmap=self._cmap._resample(3),
+            cmap=self._cmap.resampled(3),
             vmin=cvmin,
             vmax=cvmax)
 
